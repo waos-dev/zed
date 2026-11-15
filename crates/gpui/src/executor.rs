@@ -504,6 +504,23 @@ impl ForegroundExecutor {
         self.inner.block_with_timeout(duration, future)
     }
 
+    /// On wasm nothing may block, so the timeout is zero: the future is polled once, and
+    /// handed back to be awaited unless that finished it.
+    #[cfg(target_family = "wasm")]
+    pub fn block_with_timeout<R, Fut: Future<Output = R>>(
+        &self,
+        _duration: Duration,
+        future: Fut,
+    ) -> Result<R, impl Future<Output = R> + use<R, Fut>> {
+        let mut future = Box::pin(future);
+        let waker = futures::task::noop_waker();
+        let mut context = std::task::Context::from_waker(&waker);
+        match future.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(value) => Ok(value),
+            std::task::Poll::Pending => Err(future),
+        }
+    }
+
     #[doc(hidden)]
     pub fn dispatcher(&self) -> &Arc<dyn PlatformDispatcher> {
         &self.dispatcher
