@@ -185,6 +185,35 @@ impl BackgroundExecutor {
         }
     }
 
+    /// Runs tasks that may borrow from their environment and waits for all of them to complete.
+    ///
+    /// On wasm nothing may block, so the tasks are not spawned: they are awaited here, one after
+    /// another, in the order they were spawned, which keeps their borrows inside this call.
+    #[cfg(target_family = "wasm")]
+    pub async fn scoped<'scope, F>(&self, scheduler: F)
+    where
+        F: FnOnce(&mut Scope<'scope>),
+    {
+        self.scoped_priority(Priority::default(), scheduler).await
+    }
+
+    /// Runs prioritized tasks that may borrow from their environment and waits for all of them to
+    /// complete; on wasm, in place, as [`Self::scoped`].
+    #[cfg(target_family = "wasm")]
+    pub async fn scoped_priority<'scope, F>(&self, _priority: Priority, scheduler: F)
+    where
+        F: FnOnce(&mut Scope<'scope>),
+    {
+        let mut scope = Scope {
+            executor: self.clone(),
+            futures: Vec::new(),
+        };
+        (scheduler)(&mut scope);
+        for future in scope.futures {
+            future.await;
+        }
+    }
+
     /// Get the current time.
     ///
     /// Calling this instead of `std::time::Instant::now` allows the use
@@ -554,6 +583,30 @@ impl Drop for Scope<'_> {
             .inner
             .scheduler()
             .block(None, future.as_mut(), None);
+    }
+}
+
+/// Scope manages a set of tasks that are awaited together. See [`BackgroundExecutor::scoped`].
+#[cfg(target_family = "wasm")]
+pub struct Scope<'a> {
+    executor: BackgroundExecutor,
+    futures: Vec<std::pin::Pin<Box<dyn Future<Output = ()> + Send + 'a>>>,
+}
+
+#[cfg(target_family = "wasm")]
+impl<'a> Scope<'a> {
+    /// How many CPUs are available to the dispatcher.
+    pub fn num_cpus(&self) -> usize {
+        self.executor.num_cpus()
+    }
+
+    /// Adds a future to this scope, awaited in place once the scope's tasks are all added.
+    #[track_caller]
+    pub fn spawn<F>(&mut self, f: F)
+    where
+        F: Future<Output = ()> + Send + 'a,
+    {
+        self.futures.push(Box::pin(f));
     }
 }
 
