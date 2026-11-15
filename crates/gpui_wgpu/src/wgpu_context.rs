@@ -434,6 +434,39 @@ impl WgpuContext {
         Ok(PreparedWebGraphics { context, surface })
     }
 
+    /// The context of a WASI component, on the instance of the custom wgpu backend the program
+    /// brings, such as one over `wasi:webgpu`. Its surfaces are made on that instance afterwards,
+    /// so no surface picks the adapter: the host has one GPU for the program.
+    #[cfg(target_os = "wasi")]
+    pub async fn new_wasi(instance: wgpu::Instance) -> anyhow::Result<Self> {
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: None,
+                force_fallback_adapter: false,
+                apply_limit_buckets: false,
+            })
+            .await
+            .map_err(|error| anyhow::anyhow!("Failed to request a WASI WebGPU adapter: {error}"))?;
+        let (device, queue, dual_source_blending, color_texture_format) =
+            Self::create_device(&adapter).await?;
+        let errors = DeviceErrorState::install(&device);
+        log::info!(
+            "WASI WebGPU initialized: adapter={:?}, dual_source_blending={dual_source_blending}",
+            adapter.get_info().name,
+        );
+        Ok(Self {
+            instance,
+            adapter,
+            device: Arc::new(device),
+            queue: Arc::new(queue),
+            backend: WgpuBackend::BrowserWebGpu,
+            dual_source_blending,
+            color_texture_format,
+            errors,
+        })
+    }
+
     async fn create_device(
         adapter: &wgpu::Adapter,
     ) -> anyhow::Result<(wgpu::Device, wgpu::Queue, bool, TextureFormat)> {

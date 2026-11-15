@@ -382,6 +382,19 @@ impl WgpuRenderer {
         Self::new_internal(None, context, surface, config, false, None, atlas)
     }
 
+    /// A renderer drawing into `surface` with an atlas made before it: a WASI host may give a
+    /// window its surface only after the window opened, while GPUI asks the window for its atlas
+    /// as it opens.
+    #[cfg(target_os = "wasi")]
+    pub fn new_from_surface_with_atlas(
+        context: &WgpuContext,
+        surface: wgpu::Surface<'static>,
+        config: WgpuSurfaceConfig,
+        atlas: Arc<WgpuAtlas>,
+    ) -> anyhow::Result<Self> {
+        Self::new_internal(None, context, surface, config, false, None, atlas)
+    }
+
     /// Returns the surface configuration for `config`, along with the transparent and
     /// opaque alpha modes that the surface supports.
     pub(crate) fn surface_configuration(
