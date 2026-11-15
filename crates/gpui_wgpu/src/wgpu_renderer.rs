@@ -358,7 +358,7 @@ impl WgpuRenderer {
         )
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     pub fn new_from_canvas(
         context: &WgpuContext,
         canvas: &web_sys::HtmlCanvasElement,

@@ -90,7 +90,7 @@ pub enum WgpuBackend {
     Native(wgpu::Backend),
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum WebBackendPreference {
     #[default]
@@ -99,7 +99,7 @@ pub enum WebBackendPreference {
     WebGl,
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
 pub struct PreparedWebGraphics {
     pub context: WgpuContext,
     pub surface: wgpu::Surface<'static>,
@@ -109,11 +109,11 @@ pub struct PreparedWebGraphics {
 /// target carries a display handle, and `SurfaceTarget::Canvas` always passes `None`.
 /// The WebGL2 backend never reads the handle (WebGPU bypasses wgpu-core entirely), so
 /// a unit web display handle on the instance satisfies the check.
-#[cfg(target_family = "wasm")]
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
 #[derive(Debug)]
 struct WebDisplaySource;
 
-#[cfg(target_family = "wasm")]
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
 impl raw_window_handle::HasDisplayHandle for WebDisplaySource {
     fn display_handle(
         &self,
@@ -339,7 +339,7 @@ impl WgpuContext {
     }
 
     pub fn supports_transient_attachments(&self) -> bool {
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(target_family = "wasm", target_os = "unknown"))]
         if self.backend == WgpuBackend::BrowserWebGpu {
             // wgpu passes usage bits straight to the browser without knowing
             // whether it recognizes this one.
@@ -350,7 +350,7 @@ impl WgpuContext {
         true
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     pub async fn new_web(
         canvas: &web_sys::HtmlCanvasElement,
         preference: WebBackendPreference,
@@ -358,7 +358,7 @@ impl WgpuContext {
         Self::new_web_with_backend(canvas, preference).await
     }
 
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     #[allow(clippy::arc_with_non_send_sync)]
     async fn new_web_with_backend(
         canvas: &web_sys::HtmlCanvasElement,

@@ -44,13 +44,18 @@ font-kit = { workspace = true, optional = true }
 [target.'cfg(any(target_os = "linux", target_os = "freebsd"))'.dependencies]
 wgpu = { workspace = true, features = ["std", "metal", "gles", "vulkan", "wgsl", "webgpu"] }
 
-[target.'cfg(not(any(target_os = "linux", target_os = "freebsd")))'.dependencies]
+[target.'cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "wasi")))'.dependencies]
 wgpu = { workspace = true, default-features = true }
 
-[target.'cfg(target_family = "wasm")'.dependencies]
+# The browser's wasm.
+[target.'cfg(all(target_family = "wasm", target_os = "unknown"))'.dependencies]
 js-sys.workspace = true
 web-sys = { workspace = true, features = ["HtmlCanvasElement"] }
 wgpu = { workspace = true, features = ["webgl"] }
+
+# A WASI component: its wgpu backend is a custom one the host's program brings, such as a backend over wasi:webgpu.
+[target.'cfg(target_os = "wasi")'.dependencies]
+wgpu = { workspace = true, features = ["std", "wgsl", "custom", "webgpu"] }
 
 [dev-dependencies]
 criterion.workspace = true
