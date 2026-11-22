@@ -1,0 +1,107 @@
+# A release of Zed for WaOS is one tag, `waos-v<version>`, the version of `crates/zed_waos`: the
+# program packaged by `waos package`, signed with the WaOS project's key, and attached with the
+# `index.json` that lists it to the tag's GitHub release, so github.com/waos-dev/zed is a WaOS
+# package source (WaOS reads a repository's latest release). Run by hand, it releases a tag that
+# exists again; GitHub offers that only while this file is on the default branch, so a failed
+# release is otherwise re-run from its run's page.
+#
+# Secrets: WAOS_SIGNING_KEY, the WaOS project's signing key, the PEM text `waos package` reads.
+name: WaOS release
+
+on:
+  push:
+    tags: ['waos-v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to release, waos-v<version>
+        required: true
+        type: string
+
+concurrency:
+  group: waos-release-${{ inputs.tag || github.ref_name }}
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  # Must match between every cargo command, or cargo rebuilds every crate for a new profile.
+  CARGO_PROFILE_RELEASE_STRIP: debuginfo
+  CARGO_TERM_COLOR: always
+
+jobs:
+  release:
+    # On Linux, the cheapest runner that builds it: a component is the same whatever machine built it.
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    permissions:
+      # The GitHub release, made and given the package and its index.
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      # The release build of Zed's workspace takes most of the runner's disk.
+      - name: Room on the disk
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      # rust-toolchain.toml's: WaOS's nightly, with wasm32-wasip3.
+      - name: Rust
+        run: |
+          rustup toolchain install
+          rustc --version
+
+      - name: The tag names the program's version
+        run: |
+          version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "zed_waos") | .version')
+          test "${TAG#waos-v}" = "$version" || { echo "tag $TAG, zed_waos $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+
+      # cc-rs's C compiler and WASI sysroot for wasm32-wasip3 (SQLite, aws-lc, tree-sitter and its
+      # grammars). wasi-sdk 34's own clang: rustc's wasip3 links with --cooperative-threading,
+      # which takes no C object built by an older LLVM.
+      - name: wasi-sdk 34
+        env:
+          ARCHIVE: wasi-sdk-34.0-x86_64-linux.tar.gz
+          SHA256: b761e3a0721dbae9c09a0059e5fdb2bf917d1b4a8a7b430fb3b5aafb0984b2c4
+        run: |
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-34/$ARCHIVE"
+          echo "$SHA256  $ARCHIVE" | sha256sum -c -
+          tar -xzf "$ARCHIVE"
+          rm "$ARCHIVE"
+          sdk="$RUNNER_TEMP/wasi-sdk-34.0-x86_64-linux"
+          {
+            echo "CC_wasm32_wasip3=$sdk/bin/clang"
+            echo "CXX_wasm32_wasip3=$sdk/bin/clang++"
+            echo "AR_wasm32_wasip3=$sdk/bin/llvm-ar"
+            echo "WASI_SYSROOT=$sdk/share/wasi-sysroot"
+            echo "CFLAGS_wasm32_wasip3=--sysroot=$sdk/share/wasi-sysroot"
+            echo "CXXFLAGS_wasm32_wasip3=--sysroot=$sdk/share/wasi-sysroot"
+          } >> "$GITHUB_ENV"
+
+      # The `waos` of the WaOS revision the SDK is taken at, read from the lockfile so the two never
+      # differ.
+      - name: waos
+        run: |
+          rev=$(cargo metadata --locked --format-version 1 | jq -r '.packages[] | select(.name == "wasdk") | .source | capture("#(?<rev>[0-9a-f]{40})$").rev')
+          test -n "$rev" || { echo "no wasdk revision in the lockfile"; exit 1; }
+          cargo install --git https://github.com/waos-dev/waos --rev "$rev" waos-cli --locked
+          waos --version
+
+      - name: Zed, packaged
+        env:
+          WAOS_SIGNING_KEY: ${{ secrets.WAOS_SIGNING_KEY }}
+        run: |
+          # waos runs cargo without --locked; the lockfile was checked to be current above.
+          waos package -p zed_waos
+          waos package verify "target/waos/dev.waos.zed-$VERSION.wapk"
+
+      - name: The package and its index, on the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --verify-tag --latest --title "Zed for WaOS $VERSION" --notes "Zed for WaOS $VERSION, \`dev.waos.zed\`. Add \`github.com/waos-dev/zed\` as a source in WaOS to install it."
+          gh release upload "$TAG" "target/waos/dev.waos.zed-$VERSION.wapk" target/waos/index.json --clobber
