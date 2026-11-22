@@ -5702,6 +5702,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_filter"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "288efae2d67fb0418d01f837feb55c7a9cdc4c5db38d3dee91324a1c7ec6fd31"
+dependencies = [
+ "log",
+ "regex",
+]
+
+[[package]]
 name = "env_logger"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5722,7 +5732,7 @@ checksum = "13c863f0904021b108aa8b2f55046443e6b1ebde8fd4a15c399893aae4fa069f"
 dependencies = [
  "anstream",
  "anstyle",
- "env_filter",
+ "env_filter 0.1.4",
  "jiff",
  "log",
 ]
@@ -19843,6 +19853,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasdk-adapter-gpui"
+version = "0.5.0"
+source = "git+https://github.com/waos-dev/waos?rev=849efff82b85d84d3066ce13131901808d016eec#849efff82b85d84d3066ce13131901808d016eec"
+dependencies = [
+ "anyhow",
+ "env_filter 2.1.0",
+ "futures 0.3.34",
+ "gpui",
+ "gpui_wgpu",
+ "log",
+ "raw-window-handle",
+ "uuid",
+ "wasdk",
+ "wasdk-wgpu",
+]
+
+[[package]]
 name = "wasdk-macros"
 version = "0.5.0"
 source = "git+https://github.com/waos-dev/waos?rev=849efff82b85d84d3066ce13131901808d016eec#849efff82b85d84d3066ce13131901808d016eec"
@@ -19850,6 +19877,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "wasdk-wgpu"
+version = "0.5.0"
+source = "git+https://github.com/waos-dev/waos?rev=849efff82b85d84d3066ce13131901808d016eec#849efff82b85d84d3066ce13131901808d016eec"
+dependencies = [
+ "futures 0.3.34",
+ "js-sys",
+ "wasdk",
+ "wgpu",
 ]
 
 [[package]]
@@ -22879,6 +22917,59 @@ name = "zed_test_extension"
 version = "0.1.0"
 dependencies = [
  "zed_extension_api 0.8.0",
+]
+
+[[package]]
+name = "zed_waos"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assets",
+ "breadcrumbs",
+ "client",
+ "clock",
+ "command_palette",
+ "db",
+ "diagnostics",
+ "editor",
+ "file_finder",
+ "fs",
+ "futures 0.3.34",
+ "git",
+ "git_ui",
+ "git_ui_core",
+ "go_to_line",
+ "gpui",
+ "http_client",
+ "language",
+ "language_model",
+ "languages",
+ "log",
+ "node_runtime",
+ "outline",
+ "outline_panel",
+ "paths",
+ "project",
+ "project_panel",
+ "project_symbols",
+ "release_channel",
+ "rope",
+ "search",
+ "semver",
+ "session",
+ "settings",
+ "tab_switcher",
+ "tempfile",
+ "terminal_view",
+ "theme",
+ "theme_selector",
+ "theme_settings",
+ "util",
+ "uuid",
+ "wasdk",
+ "wasdk-adapter-gpui",
+ "workspace",
+ "zed_actions",
 ]
 
 [[package]]

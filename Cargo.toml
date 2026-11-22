@@ -249,6 +249,7 @@ members = [
     "crates/zed_actions",
     "crates/zed_credentials_provider",
     "crates/zed_env_vars",
+    "crates/zed_waos",
     "crates/zeta_prompt",
     "crates/zlog",
     "crates/zlog_settings",
