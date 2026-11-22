@@ -66,24 +66,33 @@ impl ProjectSymbolsDelegate {
     // Note if you make changes to this, also change `agent_ui::completion_provider::search_symbols`
     fn filter(&mut self, query: &str, window: &mut Window, cx: &mut Context<Picker<Self>>) {
         const MAX_MATCHES: usize = 100;
-        let mut visible_matches = cx.foreground_executor().block_on(fuzzy::match_strings(
-            &self.visible_match_candidates,
-            query,
-            false,
-            true,
-            MAX_MATCHES,
-            &Default::default(),
-            cx.background_executor().clone(),
-        ));
-        let mut external_matches = cx.foreground_executor().block_on(fuzzy::match_strings(
+        let run_match = |candidates: &[StringMatchCandidate], max_matches: usize| {
+            let cancel_flag = Default::default();
+            let fut = fuzzy::match_strings(
+                candidates,
+                query,
+                false,
+                true,
+                max_matches,
+                &cancel_flag,
+                cx.background_executor().clone(),
+            );
+            #[cfg(not(target_os = "wasi"))]
+            return cx.foreground_executor().block_on(fut);
+            // WaOS port: BackgroundExecutor::scoped awaits in place on wasm, so match_strings
+            // completes on the first poll without blocking.
+            #[cfg(target_os = "wasi")]
+            return cx
+                .foreground_executor()
+                .block_with_timeout(std::time::Duration::ZERO, fut)
+                .ok()
+                .unwrap_or_default();
+        };
+        let mut visible_matches = run_match(&self.visible_match_candidates, MAX_MATCHES);
+        let mut external_matches = run_match(
             &self.external_match_candidates,
-            query,
-            false,
-            true,
             MAX_MATCHES - visible_matches.len().min(MAX_MATCHES),
-            &Default::default(),
-            cx.background_executor().clone(),
-        ));
+        );
         let sort_key_for_match = |mat: &StringMatch| {
             let symbol = &self.symbols[mat.candidate_id];
             (Reverse(OrderedFloat(mat.score)), symbol.label.filter_text())

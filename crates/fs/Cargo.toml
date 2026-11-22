@@ -20,7 +20,6 @@ path = "tests/integration/fs_tests.rs"
 [dependencies]
 anyhow.workspace = true
 async-channel.workspace = true
-async-tar.workspace = true
 async-trait.workspace = true
 collections.workspace = true
 futures.workspace = true
@@ -43,7 +42,6 @@ tempfile.workspace = true
 text.workspace = true
 util.workspace = true
 notify = "9.0.0-rc.4"
-trash = { git = "https://github.com/zed-industries/trash-rs", rev = "41c6c800d884a89351f3b8856d12894cccee261d" }
 
 [target.'cfg(unix)'.dependencies]
 rustix.workspace = true
@@ -67,3 +65,13 @@ git = { workspace = true, features = ["test-support"] }
 
 [features]
 test-support = ["gpui/test-support", "git/test-support", "util/test-support"]
+
+# WaOS port: a WASI component watches files through WaOS's `file-watching`.
+[target.'cfg(target_os = "wasi")'.dependencies]
+wasdk.workspace = true
+
+# WaOS port: tar archives are unpacked through async-std's files, on a reactor WASI does not
+# have; and WASI has no system trash.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+trash = { git = "https://github.com/zed-industries/trash-rs", rev = "41c6c800d884a89351f3b8856d12894cccee261d" }
+async-tar.workspace = true

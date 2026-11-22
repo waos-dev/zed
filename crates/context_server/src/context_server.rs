@@ -1,4 +1,6 @@
 pub mod client;
+// WaOS port: the MCP listener is a Unix socket, which WASI does not have.
+#[cfg(not(target_os = "wasi"))]
 pub mod listener;
 pub mod oauth;
 pub mod protocol;

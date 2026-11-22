@@ -17,7 +17,8 @@ test = false
 [dependencies]
 anyhow.workspace = true
 
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
+# WaOS port: on WASI too.
+[target.'cfg(any(not(target_family = "wasm"), target_os = "wasi"))'.dependencies]
 futures.workspace = true
 log = { workspace = true, features = ["serde"] }
 tiny_http.workspace = true

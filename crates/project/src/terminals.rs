@@ -550,6 +550,8 @@ impl Project {
         TerminalSettings::get(settings_location, cx)
     }
 
+    /// WaOS port: not built for WASI, whose smol has no processes.
+    #[cfg(not(target_os = "wasi"))]
     pub fn exec_in_shell(
         &self,
         command: String,

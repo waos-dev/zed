@@ -135,9 +135,18 @@ pub fn config_dir() -> &'static PathBuf {
             }
             .join(APP_NAME_LOWERCASE)
         } else {
-            home_dir().join(".config").join(APP_NAME_LOWERCASE)
+            zeds_home().join(".config").join(APP_NAME_LOWERCASE)
         }
     })
+}
+
+/// Where Zed's own folders are made: the user's home, but on WASI Zed's own folder, apart from the
+/// user's home on the machine (WaOS port).
+fn zeds_home() -> &'static PathBuf {
+    #[cfg(target_os = "wasi")]
+    return util::paths::own_dir();
+    #[cfg(not(target_os = "wasi"))]
+    home_dir()
 }
 
 /// Returns the path to the data directory used by Zed.
@@ -214,7 +223,7 @@ pub fn temp_dir() -> &'static PathBuf {
             .join(APP_NAME_LOWERCASE);
         }
 
-        home_dir().join(".cache").join(APP_NAME_LOWERCASE)
+        zeds_home().join(".cache").join(APP_NAME_LOWERCASE)
     })
 }
 

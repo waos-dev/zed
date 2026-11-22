@@ -35,6 +35,19 @@ pub struct WrapRow(pub u32);
 
 const WRAP_YIELD_ROW_INTERVAL: usize = 100;
 
+/// Whether a short wrap runs in place, blocking until it is done, rather than in the background as
+/// a long one does. WaOS port: nothing blocks on wasm, so on WASI every wrap is a long one.
+const SHORT_WRAPS_IN_PLACE: bool = cfg!(not(target_os = "wasi"));
+
+#[cfg(not(target_os = "wasi"))]
+use gpui::block_on as wrap_in_place;
+
+/// WaOS port: on WASI no wrap runs in place (`SHORT_WRAPS_IN_PLACE`).
+#[cfg(target_os = "wasi")]
+fn wrap_in_place<T>(_wrap: impl std::future::Future<Output = T>) -> T {
+    unreachable!("no wrap runs in place on WASI")
+}
+
 impl_for_row_types! {
     WrapRow => RowDelta
 }
@@ -304,8 +317,8 @@ impl WrapMap {
                 new: range,
             }];
 
-            if total_rows < WRAP_YIELD_ROW_INTERVAL {
-                let edits = gpui::block_on(new_snapshot.update(
+            if SHORT_WRAPS_IN_PLACE && total_rows < WRAP_YIELD_ROW_INTERVAL {
+                let edits = wrap_in_place(new_snapshot.update(
                     tab_snapshot.clone(),
                     &tab_edits,
                     wrap_width,
@@ -410,11 +423,11 @@ impl WrapMap {
                 .flat_map(|(_, tab_edits)| tab_edits.iter())
                 .map(|edit| (edit.new.end.row().saturating_sub(edit.new.start.row()) + 1) as usize)
                 .sum::<usize>();
-            if update_passes + total_new_rows < WRAP_YIELD_ROW_INTERVAL {
+            if SHORT_WRAPS_IN_PLACE && update_passes + total_new_rows < WRAP_YIELD_ROW_INTERVAL {
                 let mut wrap_edits = Patch::default();
                 for (tab_snapshot, tab_edits) in pending_edits {
                     let indent_adjustment = self.indent_adjustment(tab_snapshot.tab_size);
-                    let edits = gpui::block_on(snapshot.update(
+                    let edits = wrap_in_place(snapshot.update(
                         tab_snapshot,
                         &tab_edits,
                         wrap_width,

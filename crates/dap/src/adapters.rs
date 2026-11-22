@@ -1,5 +1,6 @@
 use anyhow::{Context as _, Result, anyhow};
 use async_compression::futures::bufread::GzipDecoder;
+#[cfg(not(target_os = "wasi"))]
 use async_tar::Archive;
 use async_trait::async_trait;
 use collections::HashMap;
@@ -313,9 +314,15 @@ pub async fn download_adapter_from_github(
     delegate.output_to_console("Download complete".to_owned());
     match file_type {
         DownloadedFileType::GzipTar => {
-            let decompressed_bytes = GzipDecoder::new(BufReader::new(response.body_mut()));
-            let archive = Archive::new(decompressed_bytes);
-            archive.unpack(&version_path).await?;
+            #[cfg(not(target_os = "wasi"))]
+            {
+                let decompressed_bytes = GzipDecoder::new(BufReader::new(response.body_mut()));
+                let archive = Archive::new(decompressed_bytes);
+                archive.unpack(&version_path).await?;
+            }
+            // WaOS port: no tar extraction in a component.
+            #[cfg(target_os = "wasi")]
+            anyhow::bail!("tar archives are not unpacked in a WASI component");
         }
         DownloadedFileType::Zip | DownloadedFileType::Vsix => {
             let zip_path = version_path.with_extension("zip");

@@ -77,7 +77,21 @@ use project::{
     },
     project_settings::{GitPathStyle, ProjectSettings},
 };
+#[cfg(not(target_os = "wasi"))]
 use prompt_store::RULES_FILE_NAMES;
+// WaOS port: keeps git_ui free of prompt_store -> heed -> lmdb-master-sys (mmap).
+#[cfg(target_os = "wasi")]
+const RULES_FILE_NAMES: &[&str] = &[
+    ".rules",
+    ".cursorrules",
+    ".windsurfrules",
+    ".clinerules",
+    ".github/copilot-instructions.md",
+    "AGENT.md",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+];
 
 use serde::{Deserialize, Serialize};
 use settings::{

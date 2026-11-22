@@ -133,7 +133,6 @@ use std::{
     env,
     hash::Hash,
     path::{Path, PathBuf},
-    process::ExitStatus,
     rc::Rc,
     sync::{
         Arc, LazyLock,
@@ -150,6 +149,8 @@ pub use toolbar::{
 pub use ui;
 use ui::{Window, prelude::*};
 use url::Url;
+// WaOS port: a child's status of `util::command`, std's natively.
+use util::command::ExitStatus;
 use util::{
     ResultExt, TryFutureExt,
     paths::{PathStyle, SanitizedPath},
@@ -3668,8 +3669,7 @@ impl Workspace {
                             Some(worktree.read(cx).as_local()?.abs_path().to_path_buf())
                         })
                     })
-                    .or_else(std::env::home_dir)
-                    .unwrap_or_else(|| PathBuf::from(""));
+                    .unwrap_or_else(|| util::paths::home_dir().clone());
                 cx.prompt_for_new_path(&relative_to, suggested_name.as_deref())
             })?;
             let abs_path = match abs_path.await? {
@@ -9648,7 +9648,7 @@ impl Workspace {
                 .map(RemoteConnectionIdentity::into_owned);
             let worktree_store = project.worktree_store().downgrade();
             let home_dir_task = if project.is_local() {
-                Task::ready(std::env::home_dir())
+                Task::ready(Some(util::paths::home_dir().clone()))
             } else {
                 let resolve_task = project.resolve_abs_path("~", cx);
                 cx.spawn(async |_, _| {

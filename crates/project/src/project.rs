@@ -1138,7 +1138,7 @@ impl DirectoryLister {
                 };
                 directory.to_string_lossy().into_owned()
             })
-            .or_else(|| std::env::home_dir().map(|dir| dir.to_string_lossy().into_owned()))
+            .or_else(|| Some(paths::home_dir().to_string_lossy().into_owned()))
             .map(|mut query| {
                 if !query.ends_with(path_style.separators_ch()) {
                     query.push_str(path_style.primary_separator());

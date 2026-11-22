@@ -124,7 +124,8 @@ fn html_escape(input: &str) -> String {
     output
 }
 
-#[cfg(not(target_family = "wasm"))]
+// WaOS port: on WASI too, whose sockets reach this computer under the local-network switch.
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 mod server {
     use super::oauth_callback_page;
     use anyhow::{Context as _, Result, anyhow};
@@ -486,7 +487,7 @@ mod server {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 pub use server::{
     OAuthCallbackParams, OAuthCallbackServerConfig, start_oauth_callback_server,
     start_oauth_callback_server_with_config,

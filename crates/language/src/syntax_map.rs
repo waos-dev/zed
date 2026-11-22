@@ -45,6 +45,8 @@ pub struct SyntaxSnapshot {
 
 // Dropping deep treesitter Trees can be quite slow due to deallocating lots of memory.
 // To avoid blocking the main thread, we offload the drop operation to a background thread.
+// WaOS port: a WASI component has one thread, so its trees are dropped where they are.
+#[cfg(not(target_os = "wasi"))]
 impl Drop for SyntaxSnapshot {
     fn drop(&mut self) {
         static DROP_TX: LazyLock<std::sync::mpsc::Sender<SumTree<SyntaxLayerEntry>>> =

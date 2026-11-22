@@ -11,10 +11,11 @@ use parking_lot::Mutex;
 use proto::ErrorExt;
 use settings::Settings as _;
 use smallvec::SmallVec;
+#[cfg(not(target_os = "wasi"))]
+use smol::net::{TcpListener, TcpStream};
 use smol::{
     channel::{Receiver, Sender, unbounded},
     io::{AsyncBufReadExt as _, AsyncWriteExt, BufReader},
-    net::{TcpListener, TcpStream},
 };
 use std::{
     collections::HashMap,
@@ -540,6 +541,15 @@ impl TcpTransport {
         }
     }
 
+    /// WaOS port, from the 10-16 experiment: WASI has blocking TCP sockets in std, but smol's async ones need its reactor.
+    #[cfg(target_os = "wasi")]
+    pub async fn unused_port(host: IpAddr) -> Result<u16> {
+        Ok(std::net::TcpListener::bind(SocketAddr::new(host, 0))?
+            .local_addr()?
+            .port())
+    }
+
+    #[cfg(not(target_os = "wasi"))]
     pub async fn unused_port(host: IpAddr) -> Result<u16> {
         Ok(TcpListener::bind(SocketAddr::new(host, 0))
             .await?
@@ -647,10 +657,19 @@ impl Transport for TcpTransport {
             Box<dyn AsyncRead + Unpin + Send + 'static>,
         )>,
     > {
+        #[cfg(target_os = "wasi")]
+        return Task::ready(Err(anyhow::anyhow!(
+            "the TCP transport needs smol's reactor, which a WASI component does not have"
+        )));
+        #[cfg(not(target_os = "wasi"))]
         let executor = self.executor.clone();
+        #[cfg(not(target_os = "wasi"))]
         let timeout = self.timeout;
+        #[cfg(not(target_os = "wasi"))]
         let address = SocketAddr::new(self.host, self.port);
+        #[cfg(not(target_os = "wasi"))]
         let process = self.process.clone();
+        #[cfg(not(target_os = "wasi"))]
         executor.clone().spawn(async move {
             select! {
                 _ = executor.timer(Duration::from_millis(timeout)).fuse() => {

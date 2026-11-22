@@ -130,6 +130,12 @@ pub fn os_name(cx: &App) -> String {
     {
         "Windows".to_string()
     }
+
+    // WaOS port.
+    #[cfg(target_os = "wasi")]
+    {
+        "WaOS".to_string()
+    }
 }
 
 /// Returns the OS name, guessing the display server from the environment.
@@ -154,11 +160,21 @@ pub fn guessed_os_name() -> String {
     {
         "Windows".to_string()
     }
+
+    // WaOS port.
+    #[cfg(target_os = "wasi")]
+    {
+        "WaOS".to_string()
+    }
 }
 
 /// Note: This might do blocking IO! Only call from background threads
 pub fn os_version() -> String {
     cfg_select! {
+       // WaOS port: the version of the system under WaOS is not the program's to read.
+       target_os = "wasi" => {
+           "unknown".to_owned()
+       }
        feature = "test-support" => {
            // MacOS branch in particular is quite slow, hence we ought to "avoid" it in tests.
            "test binary".to_owned()

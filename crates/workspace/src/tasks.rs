@@ -1,4 +1,3 @@
-use std::process::ExitStatus;
 
 use anyhow::Result;
 use collections::HashSet;
@@ -11,6 +10,8 @@ use task::{
     TaskHook, TaskTemplate, TaskVariables, VariableName,
 };
 use ui::Window;
+// WaOS port: a child's status of `util::command`, std's natively.
+use util::command::ExitStatus;
 use util::TryFutureExt;
 
 use crate::{SaveIntent, Toast, Workspace, notifications::NotificationId};

@@ -25,7 +25,6 @@ load-grammars = [
 anyhow.workspace = true
 async-compression.workspace = true
 async-fs.workspace = true
-async-tar.workspace = true
 async-trait.workspace = true
 chrono.workspace = true
 collections.workspace = true
@@ -41,13 +40,6 @@ log.workspace = true
 lsp.workspace = true
 node_runtime.workspace = true
 parking_lot.workspace = true
-pet-conda.workspace = true
-pet-core.workspace = true
-pet-fs.workspace = true
-pet-poetry.workspace = true
-pet-reporter.workspace = true
-pet-virtualenv.workspace = true
-pet.workspace = true
 project.workspace = true
 regex.workspace = true
 rope.workspace = true
@@ -62,7 +54,7 @@ snippet.workspace = true
 task.workspace = true
 terminal.workspace = true
 theme.workspace = true
-tree-sitter = { workspace = true, optional = true , features = ["wasm"] }
+tree-sitter = { workspace = true, optional = true }
 tree-sitter-gitcommit = { workspace = true, optional = true }
 url.workspace = true
 util.workspace = true
@@ -85,3 +77,17 @@ tree-sitter-rust.workspace = true
 tree-sitter-typescript.workspace = true
 tree-sitter = { workspace = true, features = ["wasm"] }
 unindent.workspace = true
+
+# WaOS port: grammars compiled to wasm need wasmtime, which a WASI component cannot hold; the
+# built-in grammars are native code.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+async-tar.workspace = true
+tree-sitter = { workspace = true, optional = true, features = ["wasm"] }
+# WaOS port: pet runs on Unix and Windows only (see `mod python`).
+pet-conda.workspace = true
+pet-core.workspace = true
+pet-fs.workspace = true
+pet-poetry.workspace = true
+pet-reporter.workspace = true
+pet-virtualenv.workspace = true
+pet.workspace = true

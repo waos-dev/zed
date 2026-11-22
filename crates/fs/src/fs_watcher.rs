@@ -15,6 +15,9 @@ use util::{ResultExt, paths::SanitizedPath};
 use crate::{Fs, PathEvent, PathEventKind, Watcher};
 
 mod diagnostics;
+// WaOS port: a WASI component's native watcher.
+#[cfg(target_os = "wasi")]
+mod waos;
 pub use diagnostics::{
     WatchDiagnosticEvent, WatchRecording, WatchRoot, WatchSnapshot, WatcherSnapshot,
 };
@@ -29,9 +32,11 @@ pub enum OsWatcherKind {
 
 impl OsWatcherKind {
     /// Poll watches and native macOS/Windows watches cover their whole subtree;
-    /// native Linux (inotify) watches cover one directory.
+    /// native Linux (inotify) watches cover one directory. WaOS port: so do WaOS's, on every
+    /// system it runs on.
     fn is_recursive(self) -> bool {
-        self == Self::Poll || cfg!(any(target_os = "windows", target_os = "macos"))
+        self == Self::Poll
+            || cfg!(any(target_os = "windows", target_os = "macos", target_os = "wasi"))
     }
 }
 
@@ -1337,6 +1342,10 @@ impl OsWatcher {
         let mut backend = self.backend.lock();
         if backend.is_none() {
             *backend = Some(match self.kind {
+                // WaOS port: WaOS's watcher, where notify has none.
+                #[cfg(target_os = "wasi")]
+                OsWatcherKind::Native => Box::new(waos::WaosWatcher::new(self.event_sink())),
+                #[cfg(not(target_os = "wasi"))]
                 OsWatcherKind::Native => {
                     // CORE excludes Access events, which Zed discards anyway. Without this,
                     // the default mask subscribes to inotify OPEN/CLOSE_* on Linux, so every

@@ -46,7 +46,6 @@ multi_buffer.workspace = true
 notifications.workspace = true
 picker.workspace = true
 project.workspace = true
-prompt_store.workspace = true
 rand.workspace = true
 release_channel.workspace = true
 remote_connection.workspace = true
@@ -74,6 +73,10 @@ workspace.workspace = true
 git_ui_core.workspace = true
 zed_actions.workspace = true
 ztracing.workspace = true
+
+# WaOS port: prompt_store pulls in heed -> lmdb-master-sys (mmap); git_panel only reads RULES_FILE_NAMES.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+prompt_store.workspace = true
 
 [dev-dependencies]
 ctor.workspace = true

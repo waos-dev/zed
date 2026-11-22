@@ -89,11 +89,19 @@ pub enum IoKind {
     StdErr,
 }
 
+/// WaOS port: the arguments as text, where serde has no `OsString`.
+#[cfg(target_os = "wasi")]
+fn serialize_lossy<S: serde::Serializer>(arguments: &[OsString], serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.collect_seq(arguments.iter().map(|argument| argument.to_string_lossy()))
+}
+
 /// Represents a launchable language server. This can either be a standalone binary or the path
 /// to a runtime with arguments to instruct it to launch the actual language server file.
 #[derive(Clone, Serialize)]
 pub struct LanguageServerBinary {
     pub path: PathBuf,
+    // WaOS port: serde serializes an `OsString` only on Unix and Windows.
+    #[cfg_attr(target_os = "wasi", serde(serialize_with = "serialize_lossy"))]
     pub arguments: Vec<OsString>,
     pub env: Option<HashMap<String, String>>,
 }
@@ -877,9 +885,16 @@ impl LanguageServer {
             },
         );
 
+        // WaOS port: a WASI component has no process id, and the server runs on a machine, where
+        // the program is no process it could watch.
+        #[cfg(target_os = "wasi")]
+        let process_id = None;
+        #[cfg(not(target_os = "wasi"))]
+        let process_id = Some(std::process::id());
+
         #[allow(deprecated)]
         InitializeParams {
-            process_id: Some(std::process::id()),
+            process_id,
             root_path: Some(
                 self.root_uri
                     .to_file_path()
@@ -1699,6 +1714,10 @@ impl LanguageServer {
             .unwrap()
         }));
 
+        // WaOS port: the channel is unbounded, and wasm has no blocking send.
+        #[cfg(target_family = "wasm")]
+        outbound_tx.try_send(message)?;
+        #[cfg(not(target_family = "wasm"))]
         outbound_tx.send_blocking(message)?;
         Ok(())
     }

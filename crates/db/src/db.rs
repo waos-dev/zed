@@ -62,7 +62,7 @@ impl AppDatabase {
     /// migrations in dependency order.
     pub fn new() -> Self {
         let db_dir = database_dir();
-        let connection = gpui::block_on(open_db::<AppMigrator>(db_dir, *RELEASE_CHANNEL));
+        let connection = open_db_now::<AppMigrator>(db_dir, *RELEASE_CHANNEL);
         Self(connection)
     }
 
@@ -165,6 +165,20 @@ pub fn db_path(db_dir: &Path, scope: impl DbScope) -> PathBuf {
     db_dir
         .join(format!("0-{}", scope.scope_name()))
         .join(DB_FILE_NAME)
+}
+
+/// Opens a database before the app goes on, as a global needs it.
+pub(crate) fn open_db_now<M: Migrator + 'static>(
+    db_dir: &Path,
+    scope: impl DbScope,
+) -> ThreadSafeConnection {
+    #[cfg(not(target_os = "wasi"))]
+    return gpui::block_on(open_db::<M>(db_dir, scope));
+    // WaOS port: nothing blocks on wasm. A WASI database is written in place, with no thread to
+    // wait for, so it opens at once.
+    #[cfg(target_os = "wasi")]
+    futures::FutureExt::now_or_never(open_db::<M>(db_dir, scope))
+        .expect("a WASI database is written in place, so it opens at once")
 }
 
 /// Open or create a database at the given directory path.

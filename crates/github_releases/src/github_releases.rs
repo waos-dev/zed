@@ -239,11 +239,12 @@ async fn stream_file_archive(
         AssetKind::TarGz => extract_tar_gz(destination_path, url, file_archive).await?,
         AssetKind::TarBz2 => extract_tar_bz2(destination_path, url, file_archive).await?,
         AssetKind::Gz => extract_gz(destination_path, url, file_archive).await?,
-        #[cfg(not(windows))]
+        // WaOS port: the seekable extraction is Unix's; WASI's refuses, as Windows' streams.
+        #[cfg(unix)]
         AssetKind::Zip => {
             util::archive::extract_seekable_zip(destination_path, file_archive).await?;
         }
-        #[cfg(windows)]
+        #[cfg(not(unix))]
         AssetKind::Zip => {
             util::archive::extract_zip(destination_path, file_archive).await?;
         }
@@ -276,16 +277,25 @@ async fn unpack_tar_archive(
     url: &str,
     archive_bytes: impl AsyncRead + Unpin,
 ) -> Result<(), anyhow::Error> {
+    // WaOS port: no tar extraction in a component.
+    #[cfg(target_os = "wasi")]
+    {
+        let _ = archive_bytes;
+        anyhow::bail!("tar archives are not unpacked in a WASI component: {url} to {destination_path:?}");
+    }
     // We don't need to set the modified time. It's irrelevant to downloaded
     // archive verification, and some filesystems return errors when asked to
     // apply it after extraction.
+    #[cfg(not(target_os = "wasi"))]
     let archive = async_tar::ArchiveBuilder::new(archive_bytes)
         .set_preserve_mtime(false)
         .build();
+    #[cfg(not(target_os = "wasi"))]
     archive
         .unpack(&destination_path)
         .await
         .with_context(|| format!("extracting {url} to {destination_path:?}"))?;
+    #[cfg(not(target_os = "wasi"))]
     Ok(())
 }
 

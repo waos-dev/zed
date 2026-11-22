@@ -2,7 +2,6 @@ use futures::FutureExt as _;
 use gpui::{App, SharedString, UpdateGlobal};
 use node_runtime::NodeRuntime;
 use project::Fs;
-use python::PyprojectTomlManifestProvider;
 use rust::CargoManifestProvider;
 use settings::{SemanticTokenRules, SettingsStore};
 use smol::stream::StreamExt;
@@ -11,10 +10,7 @@ use util::ResultExt;
 
 pub use language::*;
 
-use crate::{
-    json::JsonTaskProvider,
-    python::{BasedPyrightLspAdapter, PyreflyLspAdapter, RuffLspAdapter},
-};
+use crate::json::JsonTaskProvider;
 
 mod bash;
 mod c;
@@ -24,6 +20,9 @@ mod eslint;
 mod go;
 mod json;
 mod package_json;
+// WaOS port: Python's toolchains are found by pet, which reads the computer's files and runs no
+// further than Unix and Windows; a WASI component has Python without servers or toolchains.
+#[cfg(not(target_os = "wasi"))]
 mod python;
 mod rust;
 mod tailwind;
@@ -68,14 +67,6 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
     let json_context_provider = Arc::new(JsonTaskProvider);
     let json_lsp_adapter = Arc::new(json::JsonLspAdapter::new(languages.clone(), node.clone()));
     let node_version_lsp_adapter = Arc::new(json::NodeVersionAdapter);
-    let py_lsp_adapter = Arc::new(python::PyLspAdapter::new());
-    let ty_lsp_adapter = Arc::new(python::TyLspAdapter::new(fs.clone()));
-    let python_context_provider = Arc::new(python::PythonContextProvider);
-    let python_lsp_adapter = Arc::new(python::PyrightLspAdapter::new(node.clone()));
-    let basedpyright_lsp_adapter = Arc::new(BasedPyrightLspAdapter::new(node.clone()));
-    let ruff_lsp_adapter = Arc::new(RuffLspAdapter::new(fs.clone()));
-    let pyrefly_lsp_adapter = Arc::new(PyreflyLspAdapter::new(fs.clone()));
-    let python_toolchain_provider = Arc::new(python::PythonToolchainProvider::new(fs.clone()));
     let rust_context_provider = Arc::new(rust::RustContextProvider);
     let rust_lsp_adapter = Arc::new(rust::RustLspAdapter);
     let tailwind_adapter = Arc::new(tailwind::TailwindLspAdapter::new(node.clone()));
@@ -86,6 +77,7 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
         fs.clone(),
     ));
     let vtsls_adapter = Arc::new(vtsls::VtslsLspAdapter::new(node.clone(), fs.clone()));
+    let python_language = python_language(&node, &fs);
     let yaml_lsp_adapter = Arc::new(yaml::YamlLspAdapter::new(node));
 
     let built_in_languages = [
@@ -162,21 +154,7 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
             adapters: vec![],
             ..Default::default()
         },
-        LanguageInfo {
-            name: "python",
-            adapters: vec![
-                basedpyright_lsp_adapter,
-                ruff_lsp_adapter,
-                ty_lsp_adapter,
-                py_lsp_adapter,
-                python_lsp_adapter,
-                pyrefly_lsp_adapter,
-            ],
-            context: Some(python_context_provider),
-            toolchain: Some(python_toolchain_provider),
-            manifest_name: Some(SharedString::new_static("pyproject.toml").into()),
-            semantic_token_rules: Some(python::semantic_token_rules()),
-        },
+        python_language,
         LanguageInfo {
             name: "rust",
             adapters: vec![rust_lsp_adapter],
@@ -326,12 +304,40 @@ pub fn init(languages: Arc<LanguageRegistry>, fs: Arc<dyn Fs>, node: NodeRuntime
         anyhow::Ok(())
     })
     .detach();
-    let manifest_providers: [Arc<dyn ManifestProvider>; 2] = [
+    let manifest_providers: Vec<Arc<dyn ManifestProvider>> = vec![
         Arc::from(CargoManifestProvider),
-        Arc::from(PyprojectTomlManifestProvider),
+        #[cfg(not(target_os = "wasi"))]
+        Arc::from(python::PyprojectTomlManifestProvider),
     ];
     for provider in manifest_providers {
         project::ManifestProvidersStore::global(cx).register(provider);
+    }
+}
+
+#[cfg(not(target_os = "wasi"))]
+fn python_language(node: &NodeRuntime, fs: &Arc<dyn Fs>) -> LanguageInfo {
+    LanguageInfo {
+        name: "python",
+        adapters: vec![
+            Arc::new(python::BasedPyrightLspAdapter::new(node.clone())),
+            Arc::new(python::RuffLspAdapter::new(fs.clone())),
+            Arc::new(python::TyLspAdapter::new(fs.clone())),
+            Arc::new(python::PyLspAdapter::new()),
+            Arc::new(python::PyrightLspAdapter::new(node.clone())),
+            Arc::new(python::PyreflyLspAdapter::new(fs.clone())),
+        ],
+        context: Some(Arc::new(python::PythonContextProvider)),
+        toolchain: Some(Arc::new(python::PythonToolchainProvider::new(fs.clone()))),
+        manifest_name: Some(SharedString::new_static("pyproject.toml").into()),
+        semantic_token_rules: Some(python::semantic_token_rules()),
+    }
+}
+
+#[cfg(target_os = "wasi")]
+fn python_language(_node: &NodeRuntime, _fs: &Arc<dyn Fs>) -> LanguageInfo {
+    LanguageInfo {
+        name: "python",
+        ..Default::default()
     }
 }
 

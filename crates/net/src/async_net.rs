@@ -1,4 +1,5 @@
-#[cfg(not(target_os = "windows"))]
+// WaOS port: Unix sockets only on Unix, which WASI is not.
+#[cfg(unix)]
 pub use smol::net::unix::{UnixListener, UnixStream};
 
 #[cfg(target_os = "windows")]

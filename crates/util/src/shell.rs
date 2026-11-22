@@ -68,6 +68,13 @@ pub enum ShellKind {
     Elvish,
 }
 
+/// WaOS port: the shell is the machine's, whose user's login shell it says once connected.
+#[cfg(target_os = "wasi")]
+pub fn get_system_shell() -> String {
+    crate::machine::login_shell().unwrap_or("/bin/sh".to_string())
+}
+
+#[cfg(not(target_os = "wasi"))]
 pub fn get_system_shell() -> String {
     if cfg!(windows) {
         get_windows_system_shell()

@@ -1,5 +1,6 @@
 use anyhow::{Context as _, Result, anyhow, bail};
 use async_compression::futures::bufread::GzipDecoder;
+#[cfg(not(target_os = "wasi"))]
 use async_tar::Archive;
 use chrono::{DateTime, Utc};
 use futures::{AsyncReadExt, FutureExt as _, channel::oneshot, future::Shared};
@@ -17,9 +18,10 @@ use std::{
     io,
     net::{IpAddr, Ipv4Addr},
     path::{Path, PathBuf},
-    process::Output,
     sync::Arc,
 };
+// WaOS port: the child's output of `util::command`, std's natively.
+use util::command::Output;
 use util::ResultExt;
 use util::archive::extract_zip;
 
@@ -710,10 +712,16 @@ impl ManagedNodeRuntime {
 
             let body = response.body_mut();
             match archive_type {
+                #[cfg(not(target_os = "wasi"))]
                 ArchiveType::TarGz => {
                     let decompressed_bytes = GzipDecoder::new(BufReader::new(response.body_mut()));
                     let archive = Archive::new(decompressed_bytes);
                     archive.unpack(&node_containing_dir).await?;
+                }
+                // WaOS port: no tar extraction in a component.
+                #[cfg(target_os = "wasi")]
+                ArchiveType::TarGz => {
+                    anyhow::bail!("tar archives are not unpacked in a WASI component")
                 }
                 ArchiveType::Zip => extract_zip(&node_containing_dir, body).await?,
             }

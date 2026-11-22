@@ -19,6 +19,33 @@ use path::rel_path::RelPathBuf;
 
 pub use path::PathStyle;
 
+/// WaOS port: the user's home on the machine Zed works on, whose root is mounted at `/`, once
+/// Zed has connected to it (`set_home_dir`); Zed's own folder (`own_dir`) before.
+#[cfg(target_os = "wasi")]
+pub fn home_dir() -> &'static PathBuf {
+    MACHINE_HOME.get().unwrap_or_else(own_dir)
+}
+
+#[cfg(target_os = "wasi")]
+static MACHINE_HOME: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// WaOS port: `home` is the user's home on the machine Zed works on from now on. Zed connects to
+/// one machine for its run, so a second call changes nothing.
+#[cfg(target_os = "wasi")]
+pub fn set_home_dir(home: PathBuf) {
+    if MACHINE_HOME.set(home).is_err() {
+        log::warn!("the machine's home was already set; it stays as it was");
+    }
+}
+
+/// WaOS port: Zed's own folder, its `/data`, where WaOS keeps what a program keeps and Zed its
+/// config, data and caches, apart from the user's home on the machine (`home_dir`).
+#[cfg(target_os = "wasi")]
+pub fn own_dir() -> &'static PathBuf {
+    static OWN_DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    OWN_DIR.get_or_init(|| PathBuf::from("/data"))
+}
+
 /// Returns the path to the user's home directory.
 ///
 /// This crate's own tests see a fixed fake path. Every other build, including
@@ -73,7 +100,7 @@ pub trait PathExt {
     fn multiple_extensions(&self) -> Option<String>;
 
     /// Try to make a shell-safe representation of the path.
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
     fn try_shell_safe(&self, shell_kind: crate::shell::ShellKind) -> anyhow::Result<String>;
 }
 
@@ -157,7 +184,7 @@ impl<T: AsRef<Path>> PathExt for T {
         Some(parts.into_iter().join("."))
     }
 
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
     fn try_shell_safe(&self, shell_kind: crate::shell::ShellKind) -> anyhow::Result<String> {
         use anyhow::Context;
         let path_str = self

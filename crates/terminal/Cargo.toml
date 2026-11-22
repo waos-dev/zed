@@ -47,6 +47,10 @@ vte.workspace = true
 parking_lot.workspace = true
 percent-encoding.workspace = true
 
+# WaOS port: a terminal's command runs on a machine of `wasdk`'s, in a task of its own.
+[target.'cfg(target_os = "wasi")'.dependencies]
+wasdk.workspace = true
+
 [target.'cfg(windows)'.dependencies]
 windows.workspace = true
 

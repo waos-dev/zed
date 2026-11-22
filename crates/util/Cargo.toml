@@ -50,6 +50,19 @@ async-fs.workspace = true
 walkdir.workspace = true
 dirs.workspace = true
 
+# WaOS port: what the WASI build's subprocesses (on `wasdk::machines`), shells, archives and
+# files use.
+[target.'cfg(target_os = "wasi")'.dependencies]
+wasdk.workspace = true
+async_zip.workspace = true
+async-fs.workspace = true
+futures-lite.workspace = true
+futures.workspace = true
+log.workspace = true
+shlex.workspace = true
+smol.workspace = true
+walkdir.workspace = true
+
 [target.'cfg(any(unix, not(target_family = "wasm")))'.dependencies]
 log.workspace = true
 

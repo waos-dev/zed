@@ -801,6 +801,13 @@ impl LocalRepositoryState {
             .background_spawn({
                 let fs = fs.clone();
                 async move {
+                    // WaOS port: git runs on the machine, whose files are not the program's.
+                    #[cfg(target_os = "wasi")]
+                    let system_git_binary_path = {
+                        let _ = search_paths;
+                        util::command::which("git".as_ref(), &work_directory_abs_path).await
+                    };
+                    #[cfg(not(target_os = "wasi"))]
                     let system_git_binary_path = search_paths
                         .and_then(|search_paths| {
                             which::which_in("git", Some(search_paths), &work_directory_abs_path)

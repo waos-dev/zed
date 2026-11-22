@@ -1,19 +1,33 @@
 #[cfg(test)]
 extern crate self as util;
 
-#[cfg(not(target_family = "wasm"))]
+// WaOS port: zip archives and file helpers on WASI too, over async-fs.
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 pub mod archive;
 #[cfg(not(target_family = "wasm"))]
 pub mod command;
-#[cfg(not(target_family = "wasm"))]
+// WaOS port: subprocesses on the machine the user picked, with the API of the others.
+#[cfg(target_os = "wasi")]
+#[path = "command_wasi.rs"]
+pub mod command;
+// WaOS port: that machine, and what it says it runs.
+#[cfg(target_os = "wasi")]
+#[path = "machine_wasi.rs"]
+pub mod machine;
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 pub mod fs;
 #[cfg(target_os = "linux")]
 pub mod libc_type;
 #[cfg(not(target_family = "wasm"))]
 pub mod process;
-#[cfg(not(target_family = "wasm"))]
+// WaOS port: the same, over the subprocess stub.
+#[cfg(target_os = "wasi")]
+#[path = "process_wasi.rs"]
+pub mod process;
+// WaOS port: on WASI too, which shells exist is the machine's.
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 pub mod shell;
-#[cfg(not(target_family = "wasm"))]
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 pub mod shell_builder;
 #[cfg(not(target_family = "wasm"))]
 pub mod shell_env;
@@ -49,7 +63,7 @@ pub use path::rel_path;
 #[cfg(any(test, feature = "test-support"))]
 pub use util_macros::{line_endings, path, uri};
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(any(not(target_family = "wasm"), target_os = "wasi"))]
 pub use self::shell::{
     get_default_system_shell, get_default_system_shell_preferring_bash, get_system_shell,
 };

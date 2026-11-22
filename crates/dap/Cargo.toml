@@ -25,7 +25,6 @@ test-support = [
 anyhow.workspace = true
 async-compression.workspace = true
 async-pipe = { workspace = true, optional = true }
-async-tar.workspace = true
 async-trait.workspace = true
 client.workspace = true
 collections.workspace = true
@@ -59,3 +58,7 @@ task = { workspace = true, features = ["test-support"] }
 
 util = { workspace = true, features = ["test-support"] }
 zlog.workspace = true
+
+# WaOS port: tar archives are unpacked through async-std's files, on a reactor WASI does not have.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+async-tar.workspace = true

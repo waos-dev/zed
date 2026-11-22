@@ -3,7 +3,9 @@ use async_trait::async_trait;
 use dap::{DapLocator, DebugRequest, adapters::DebugAdapterName};
 use gpui::{BackgroundExecutor, SharedString};
 use serde_json::{Value, json};
-use smol::{io::AsyncReadExt, process::Stdio as SmolStdio};
+use smol::io::AsyncReadExt;
+#[cfg(not(target_family = "wasm"))]
+use smol::process::Stdio as SmolStdio;
 use std::time::Duration;
 use task::{BuildTaskDefinition, DebugScenario, ShellBuilder, SpawnInTerminal, TaskTemplate};
 use util::command::{Stdio, new_command};
@@ -113,6 +115,16 @@ impl DapLocator for CargoLocator {
         })
     }
 
+    #[cfg(target_family = "wasm")]
+    async fn run(
+        &self,
+        _build_config: SpawnInTerminal,
+        _executor: BackgroundExecutor,
+    ) -> Result<DebugRequest> {
+        anyhow::bail!("running cargo is not built for wasm")
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     async fn run(
         &self,
         build_config: SpawnInTerminal,

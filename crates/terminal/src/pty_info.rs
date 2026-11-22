@@ -47,6 +47,14 @@ impl ProcessIdGetter {
     }
 }
 
+/// WaOS port: a WASI component has no PTY, so no foreground process.
+#[cfg(target_os = "wasi")]
+impl ProcessIdGetter {
+    fn pid(&self) -> Option<Pid> {
+        None
+    }
+}
+
 #[cfg(windows)]
 impl ProcessIdGetter {
     fn pid(&self) -> Option<Pid> {

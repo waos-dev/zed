@@ -16,7 +16,6 @@ doctest = false
 anyhow.workspace = true
 async-compression.workspace = true
 async-fs.workspace = true
-async-tar.workspace = true
 futures.workspace = true
 gpui.workspace = true
 http_client.workspace = true
@@ -29,3 +28,7 @@ util.workspace = true
 
 [dev-dependencies]
 gpui = { workspace = true, features = ["test-support"] }
+
+# WaOS port: tar archives are unpacked through async-std's files, on a reactor WASI does not have.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+async-tar.workspace = true

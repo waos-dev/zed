@@ -71,6 +71,15 @@ impl RustLspAdapter {
     const ARCH_SERVER_NAME: &str = "pc-windows-msvc";
 }
 
+/// WaOS port: never asked. The download is cut (the port's HTTP is blocked), and a server
+/// downloaded into the program's files could not run on the machine, whose files they are not;
+/// its asset would be named after the machine's `platform`, not this build's.
+#[cfg(target_os = "wasi")]
+impl RustLspAdapter {
+    const GITHUB_ASSET_KIND: AssetKind = AssetKind::Gz;
+    const ARCH_SERVER_NAME: &str = "apple-darwin";
+}
+
 const SERVER_NAME: LanguageServerName = LanguageServerName::new_static("rust-analyzer");
 
 impl RustLspAdapter {

@@ -7,8 +7,7 @@ use std::{borrow::Cow, io, ops::RangeInclusive, path::PathBuf, sync::Arc};
 mod hyperlinks;
 
 use alacritty_terminal::{
-    event::{Event as AlacTermEvent, EventListener, Notify, WindowSize},
-    event_loop::{EventLoop, Msg, Notifier},
+    event::{Event as AlacTermEvent, EventListener, WindowSize},
     grid::{Dimensions, Grid, GridIterator, Row, Scroll as AlacScroll},
     index::{Boundary, Column, Direction as AlacDirection, Line, Point as AlacPoint},
     selection::{
@@ -21,14 +20,21 @@ use alacritty_terminal::{
         cell::{Cell as AlacCell, Flags, Hyperlink as AlacHyperlink},
         search::{Match, RegexIter, RegexSearch},
     },
-    tty,
     vi_mode::{ViModeCursor, ViMotion as AlacViMotion},
     vte::ansi::{
         ClearMode, CursorShape as AlacCursorShape, CursorStyle as AlacCursorStyle,
         NamedPrivateMode, PrivateMode,
     },
 };
-use anyhow::{Context as _, Result};
+#[cfg(not(target_os = "wasi"))]
+use alacritty_terminal::{
+    event::Notify,
+    event_loop::{EventLoop, Msg, Notifier},
+    tty,
+};
+#[cfg(not(target_os = "wasi"))]
+use anyhow::Context as _;
+use anyhow::Result;
 use futures::channel::mpsc::UnboundedSender;
 use util::paths::PathStyle;
 use vte::ansi::{Handler, Processor, Rgb, StdSyncHandler};
@@ -46,6 +52,7 @@ use crate::{
 
 pub(super) use hyperlinks::{HyperlinkMatch, RegexSearches};
 
+#[cfg(not(target_os = "wasi"))]
 pub(super) type AlacrittyPty = tty::Pty;
 pub(super) type AlacrittyTerm = Term<ZedListener>;
 pub(super) type AlacrittyTermConfig = Config;
@@ -85,10 +92,12 @@ impl From<&AlacrittyPty> for ProcessIdGetter {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 pub(super) struct PtySender {
     notifier: Notifier,
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl PtySender {
     pub(super) fn notify(&self, input: impl Into<Cow<'static, [u8]>>) {
         self.notifier.notify(input);
@@ -156,11 +165,12 @@ pub(super) fn apply_config(term: &AlacrittyTermLock, config: &AlacrittyTermConfi
     term.lock().set_options(config.clone());
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "wasi")))]
 pub(super) fn current_child_signal_mask() -> io::Result<tty::SignalMask> {
     tty::SignalMask::current()
 }
 
+#[cfg(not(target_os = "wasi"))]
 pub(super) fn pty_options(
     shell: Option<(String, Vec<String>)>,
     working_directory: Option<PathBuf>,
@@ -180,6 +190,7 @@ pub(super) fn pty_options(
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 pub(super) fn open_pty(
     options: &tty::Options,
     bounds: TerminalBounds,
@@ -211,6 +222,7 @@ pub(super) fn new_term(
     Arc::new(FairMutex::new(term))
 }
 
+#[cfg(not(target_os = "wasi"))]
 pub(super) fn spawn_event_loop(
     term: Arc<AlacrittyTermLock>,
     events_tx: UnboundedSender<PtyEvent>,
@@ -372,7 +384,8 @@ impl From<AlacTermEvent> for TerminalBackendEvent {
             AlacTermEvent::Wakeup => Self::Wakeup,
             AlacTermEvent::Bell => Self::Bell,
             AlacTermEvent::Exit => Self::Exit,
-            AlacTermEvent::ChildExit(status) => Self::ChildExit(status),
+            // WaOS port: alacritty's status is std's; on WASI the terminal's is `util::command`'s.
+            AlacTermEvent::ChildExit(status) => Self::ChildExit(status.into()),
         }
     }
 }
@@ -1266,3 +1279,158 @@ mod tests {
         assert_eq!(selection_text(&term).as_deref(), Some("zms-demo.target"));
     }
 }
+
+/// WaOS port: a WASI component has no PTY of its own, so a terminal's command runs in a terminal
+/// of the machine its user picked (`util::command::TerminalChild`), and what that terminal shows
+/// feeds the emulator as alacritty's event loop would feed it from a PTY.
+#[cfg(target_os = "wasi")]
+mod machine_terminal {
+    use super::*;
+    use futures::AsyncReadExt as _;
+    use util::command::{Command, TerminalChild, TerminalSize};
+
+    pub(in super::super) struct AlacrittyPty(TerminalChild);
+
+    /// A machine's terminal has no process id the program can ask about.
+    impl From<&AlacrittyPty> for ProcessIdGetter {
+        fn from(_pty: &AlacrittyPty) -> Self {
+            Self::new(-1, 0)
+        }
+    }
+
+    pub(in super::super) struct PtySender(TerminalChild);
+
+    impl PtySender {
+        pub(in super::super) fn notify(&self, input: impl Into<Cow<'static, [u8]>>) {
+            self.0.write(input.into().into_owned());
+        }
+
+        pub(in super::super) fn resize(&self, bounds: TerminalBounds) {
+            self.0.resize(terminal_size(bounds));
+        }
+
+        pub(in super::super) fn shutdown(&self) {
+            self.0.close();
+        }
+    }
+
+    /// A machine's command starts with its own signal mask.
+    pub(in super::super) struct SignalMask;
+
+    pub(in super::super) fn current_child_signal_mask() -> io::Result<SignalMask> {
+        Ok(SignalMask)
+    }
+
+    pub(in super::super) struct PtyOptions {
+        command: Command,
+        pub drain_on_exit: bool,
+    }
+
+    pub(in super::super) fn pty_options(
+        shell: Option<(String, Vec<String>)>,
+        working_directory: Option<PathBuf>,
+        env: impl IntoIterator<Item = (String, String)>,
+        _child_signal_mask: Option<SignalMask>,
+    ) -> PtyOptions {
+        let mut command = match shell {
+            Some((program, args)) => {
+                let mut command = Command::new(program);
+                command.args(args);
+                command
+            }
+            None => login_shell(),
+        };
+        command.envs(env);
+        if let Some(directory) = working_directory {
+            command.current_dir(directory);
+        }
+        PtyOptions {
+            command,
+            drain_on_exit: true,
+        }
+    }
+
+    /// The machine's user's login shell, started as alacritty starts the user's shell: as a login
+    /// shell on macOS (alacritty through `login`, here with `-l`), as it is elsewhere.
+    fn login_shell() -> Command {
+        let mut command = Command::new(util::shell::get_system_shell());
+        let on_macos = util::machine::platform().is_some_and(|platform| {
+            matches!(platform.os, wasdk::machines::OperatingSystem::Macos)
+        });
+        if on_macos {
+            command.arg("-l");
+        }
+        command
+    }
+
+    pub(in super::super) fn open_pty(
+        options: &PtyOptions,
+        bounds: TerminalBounds,
+        _window_id: u64,
+    ) -> io::Result<AlacrittyPty> {
+        let child = options.command.clone().spawn_in_terminal(terminal_size(bounds));
+        Ok(AlacrittyPty(child))
+    }
+
+    pub(in super::super) fn spawn_event_loop(
+        term: Arc<AlacrittyTermLock>,
+        events_tx: UnboundedSender<PtyEvent>,
+        mut pty: AlacrittyPty,
+        _drain_on_exit: bool,
+    ) -> Result<PtySender> {
+        let output = pty.0.output.take();
+        let status = pty.0.status();
+        wasdk::spawn(async move {
+            if let Some(output) = output {
+                show(output, &term, &events_tx).await;
+            }
+            // The terminal's output ends with its command, as a PTY's does.
+            match status.await {
+                Ok(status) => {
+                    let event = PtyEvent::Event(TerminalBackendEvent::ChildExit(status), 0);
+                    events_tx.unbounded_send(event).ok();
+                }
+                Err(error) => log::warn!("the terminal's command did not run: {error}"),
+            }
+            term.lock().exit();
+        });
+        Ok(PtySender(pty.0))
+    }
+
+    /// Feeds what the terminal shows into the emulator until it ends.
+    async fn show(
+        mut output: util::command::ChildOutput,
+        term: &AlacrittyTermLock,
+        events_tx: &UnboundedSender<PtyEvent>,
+    ) {
+        let mut parser = OutputParser::new();
+        let mut buffer = vec![0u8; 64 * 1024];
+        loop {
+            match output.read(&mut buffer).await {
+                Ok(0) => return,
+                Ok(count) => {
+                    parser.advance(&mut term.lock(), &buffer[..count]);
+                    let wakeup = PtyEvent::Event(TerminalBackendEvent::Wakeup, 0);
+                    events_tx.unbounded_send(wakeup).ok();
+                }
+                Err(error) => {
+                    log::warn!("failed to read the terminal's output: {error}");
+                    return;
+                }
+            }
+        }
+    }
+
+    fn terminal_size(bounds: TerminalBounds) -> TerminalSize {
+        let window = window_size_from_terminal_bounds(bounds);
+        TerminalSize {
+            columns: window.num_cols,
+            rows: window.num_lines,
+            width_in_pixels: window.num_cols.saturating_mul(window.cell_width),
+            height_in_pixels: window.num_lines.saturating_mul(window.cell_height),
+        }
+    }
+}
+
+#[cfg(target_os = "wasi")]
+pub(super) use machine_terminal::*;

@@ -45,6 +45,7 @@ use node_runtime::NodeRuntime;
 use remote::RemoteClient;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+#[cfg(not(target_family = "wasm"))]
 use smol::net::{TcpListener, TcpStream};
 use std::any::TypeId;
 use std::collections::{BTreeMap, VecDeque};
@@ -3174,7 +3175,11 @@ impl Session {
             let companion_address = format!("127.0.0.1:{companion_port}");
             let mut companion_started = false;
             for _ in 0..10 {
-                if TcpStream::connect(&companion_address).await.is_ok() {
+                #[cfg(target_family = "wasm")]
+                let connected = std::net::TcpStream::connect(&companion_address).is_ok();
+                #[cfg(not(target_family = "wasm"))]
+                let connected = TcpStream::connect(&companion_address).await.is_ok();
+                if connected {
                     companion_started = true;
                     break;
                 }
@@ -3282,6 +3287,9 @@ async fn spawn_companion(
     log::info!("will launch js-debug-companion version {path:?}");
 
     let port = {
+        #[cfg(target_family = "wasm")]
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").context("getting port for companion")?;
+        #[cfg(not(target_family = "wasm"))]
         let listener = TcpListener::bind("127.0.0.1:0")
             .await
             .context("getting port for companion")?;

@@ -1,5 +1,6 @@
 use anyhow::{Context as _, Result, bail};
 use async_compression::futures::bufread::GzipDecoder;
+#[cfg(not(target_os = "wasi"))]
 use async_tar::Archive;
 use async_trait::async_trait;
 use collections::HashMap;
@@ -606,9 +607,16 @@ impl LspInstaller for NodeVersionAdapter {
                 if version.url.ends_with(".zip") {
                     extract_zip(&destination_container_path, response.body_mut()).await?;
                 } else if version.url.ends_with(".tar.gz") {
-                    let decompressed_bytes = GzipDecoder::new(BufReader::new(response.body_mut()));
-                    let archive = Archive::new(decompressed_bytes);
-                    archive.unpack(&destination_container_path).await?;
+                    #[cfg(not(target_os = "wasi"))]
+                    {
+                        let decompressed_bytes =
+                            GzipDecoder::new(BufReader::new(response.body_mut()));
+                        let archive = Archive::new(decompressed_bytes);
+                        archive.unpack(&destination_container_path).await?;
+                    }
+                    // WaOS port: no tar extraction in a component.
+                    #[cfg(target_os = "wasi")]
+                    anyhow::bail!("tar archives are not unpacked in a WASI component");
                 }
 
                 fs::copy(

@@ -26,7 +26,8 @@ use std::collections::HashSet;
 use std::ffi::{OsStr, OsString};
 use std::sync::atomic::AtomicBool;
 
-use std::process::{ExitStatus, Output};
+// WaOS port: the child's types of `util::command`, std's natively.
+use util::command::{ExitStatus, Output};
 use std::str::FromStr;
 use std::time::SystemTime;
 use std::{

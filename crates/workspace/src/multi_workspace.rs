@@ -2171,7 +2171,7 @@ impl Render for MultiWorkspace {
             bottom_left: has_status_bar || left_sidebar.is_some(),
         };
 
-        client_side_decorations_with_rounded_corners(
+        let decorated = client_side_decorations_with_rounded_corners(
             root.key_context(workspace_key_context)
                 .relative()
                 .size_full()
@@ -2301,6 +2301,22 @@ impl Render for MultiWorkspace {
             rounded_corners,
             window,
             cx,
-        )
+        );
+        kept_clear_of_system_ui(decorated, window, cx)
     }
+}
+
+/// `content`, kept clear of where the platform's own UI covers the window, a phone's status bar,
+/// notch, navigation bar and keyboard (GPUI's window insets), with the title bar's color behind
+/// them; as it is where nothing covers the window. GPUI leaves this to the app.
+fn kept_clear_of_system_ui(content: impl IntoElement, window: &Window, cx: &App) -> Div {
+    let insets = window.insets().effective();
+    div()
+        .size_full()
+        .bg(cx.theme().colors().title_bar_background)
+        .pt(insets.top)
+        .pr(insets.right)
+        .pb(insets.bottom)
+        .pl(insets.left)
+        .child(content)
 }

@@ -589,8 +589,14 @@ impl Worktree {
                         entry.is_hidden = settings.is_path_hidden(path);
                     }
                 }
+                #[cfg(not(target_family = "wasm"))]
                 cx.foreground_executor()
                     .block_on(snapshot.insert_entry(entry, fs.as_ref()));
+                // WaOS port: nothing blocks on wasm. The root's entry waits only to read a root
+                // that is itself a `.gitignore` file, which this port cannot open as a worktree.
+                #[cfg(target_os = "wasi")]
+                futures::FutureExt::now_or_never(snapshot.insert_entry(entry, fs.as_ref()))
+                    .expect("a worktree of a lone .gitignore file is not opened on WASI");
             }
 
             let (scan_requests_tx, scan_requests_rx) = async_channel::unbounded();
@@ -5889,8 +5895,9 @@ impl BackgroundScanner {
         let (ignore_queue_tx, ignore_queue_rx) = async_channel::unbounded();
         {
             for (parent_abs_path, ignore_stack) in ignores_to_update {
+                // WaOS port: the channel is unbounded, and wasm has no blocking send.
                 ignore_queue_tx
-                    .send_blocking(UpdateIgnoreStatusJob {
+                    .try_send(UpdateIgnoreStatusJob {
                         abs_path: parent_abs_path,
                         ignore_stack,
                         ignore_queue: ignore_queue_tx.clone(),

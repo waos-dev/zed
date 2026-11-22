@@ -1,10 +1,15 @@
 use std::path::Path;
 
-use anyhow::{Context as _, Result};
+#[cfg(any(unix, windows))]
+use anyhow::Context as _;
+use anyhow::Result;
+#[cfg(any(unix, windows))]
 use async_zip::base::read;
-#[cfg(not(windows))]
+#[cfg(unix)]
 use futures::AsyncSeek;
-use futures::{AsyncRead, io::BufReader};
+use futures::AsyncRead;
+#[cfg(any(unix, windows))]
+use futures::io::BufReader;
 
 #[cfg(any(unix, windows))]
 fn archive_path_is_normal(filename: &str) -> bool {
@@ -63,6 +68,12 @@ pub async fn extract_zip<R: AsyncRead + Unpin>(destination: &Path, reader: R) ->
     }
 
     Ok(())
+}
+
+/// WaOS port: downloaded archives are unpacked on the machine, not in a WASI component.
+#[cfg(target_os = "wasi")]
+pub async fn extract_zip<R: AsyncRead + Unpin>(destination: &Path, _reader: R) -> Result<()> {
+    anyhow::bail!("zip archives are not unpacked in a WASI component: {destination:?}")
 }
 
 #[cfg(unix)]

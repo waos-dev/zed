@@ -1,4 +1,4 @@
-use std::{cmp, path::PathBuf, process::ExitStatus, sync::Arc, time::Duration};
+use std::{cmp, path::PathBuf, sync::Arc, time::Duration};
 
 use crate::{
     TerminalView, default_working_directory,
@@ -25,6 +25,8 @@ use ui::{
     ButtonLike, Clickable, CommonAnimationExt, ContextMenu, FluentBuilder, PopoverMenu,
     SplitButton, Toggleable, Tooltip, prelude::*,
 };
+// WaOS port: a child's status of `util::command`, std's natively.
+use util::command::ExitStatus;
 use util::{ResultExt, TryFutureExt, defer};
 use workspace::{
     ActivateNextPane, ActivatePane, ActivatePaneDown, ActivatePaneLeft, ActivatePaneRight,

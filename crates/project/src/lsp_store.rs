@@ -17129,11 +17129,18 @@ impl LspAdapterDelegate for LocalLspAdapterDelegate {
             worktree_abs_path.pop();
         }
 
-        let env = self.shell_env().await;
+        // WaOS port: a language server runs on the machine, whose files are not the program's.
+        #[cfg(target_os = "wasi")]
+        return util::command::which(command, &worktree_abs_path).await;
 
-        let shell_path = env.get("PATH").cloned();
+        #[cfg(not(target_os = "wasi"))]
+        {
+            let env = self.shell_env().await;
 
-        which::which_in(command, shell_path.as_ref(), worktree_abs_path).ok()
+            let shell_path = env.get("PATH").cloned();
+
+            which::which_in(command, shell_path.as_ref(), worktree_abs_path).ok()
+        }
     }
 
     async fn try_exec(&self, command: LanguageServerBinary) -> Result<()> {

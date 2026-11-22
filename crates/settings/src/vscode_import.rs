@@ -996,6 +996,10 @@ impl VsCodeSettings {
         let platform = "osx";
         #[cfg(target_os = "freebsd")]
         let platform = "freebsd";
+        // WaOS port: a WASI component's machine is not known here; Linux's names are the
+        // closest to WaOS's own.
+        #[cfg(target_os = "wasi")]
+        let platform = "linux";
         let env = self
             .read_value(&format!("terminal.integrated.env.{platform}"))
             .and_then(|v| v.as_object())

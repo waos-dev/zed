@@ -345,8 +345,14 @@ async fn load_directory_shell_environment(
     };
 
     let (shell, args) = shell.program_and_args();
-    let mut envs = util::shell_env::capture(shell.clone(), args, abs_path)
-        .await
+    #[cfg(target_family = "wasm")]
+    let captured: anyhow::Result<collections::HashMap<String, String>> = {
+        let _ = (args, abs_path);
+        Err(anyhow::anyhow!("capturing a shell environment needs a subprocess"))
+    };
+    #[cfg(not(target_family = "wasm"))]
+    let captured = util::shell_env::capture(shell.clone(), args, abs_path).await;
+    let mut envs = captured
         .with_context(|| {
             tx.unbounded_send("Failed to load environment variables".into())
                 .ok();

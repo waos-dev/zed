@@ -132,7 +132,7 @@ impl ThreadSafeConnection {
             let mut queues = QUEUES.write();
             if !queues.contains_key(&self.uri) {
                 let mut write_queue_constructor =
-                    write_queue_constructor.unwrap_or_else(background_thread_queue);
+                    write_queue_constructor.unwrap_or_else(default_write_queue);
                 queues.insert(self.uri.clone(), write_queue_constructor());
                 return true;
             }
@@ -276,6 +276,15 @@ impl Deref for ThreadSafeConnection {
         self.connections.get_or(|| {
             Self::create_connection(self.persistent, &self.uri, self.connection_initialize_query)
         })
+    }
+}
+
+/// WaOS port: a WASI component has no thread to write on, so its writes run in place.
+fn default_write_queue() -> WriteQueueConstructor {
+    if cfg!(target_os = "wasi") {
+        locking_queue()
+    } else {
+        background_thread_queue()
     }
 }
 

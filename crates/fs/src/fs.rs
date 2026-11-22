@@ -1,3 +1,6 @@
+// WaOS port: std's WASI file metadata (an inode), which is unstable.
+#![cfg_attr(target_os = "wasi", feature(wasi_ext))]
+
 pub mod fs_watcher;
 mod git_clone_progress;
 
@@ -30,6 +33,7 @@ use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
 #[cfg(any(target_os = "macos", target_os = "freebsd"))]
 use std::mem::MaybeUninit;
 
+#[cfg(not(target_os = "wasi"))]
 use async_tar::Archive;
 use futures::{AsyncRead, Stream, StreamExt, future::BoxFuture};
 use git::repository::{GitRepository, RealGitRepository};
@@ -110,6 +114,7 @@ pub trait Fs: Send + Sync {
         path: &Path,
         content: Pin<&mut (dyn AsyncRead + Send)>,
     ) -> Result<()>;
+    #[cfg(not(target_os = "wasi"))]
     async fn extract_tar_file(
         &self,
         path: &Path,
@@ -226,6 +231,7 @@ struct TrashedEntry {
     pub original_parent: PathBuf,
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl From<trash::TrashItem> for TrashedEntry {
     fn from(item: trash::TrashItem) -> Self {
         Self {
@@ -236,6 +242,7 @@ impl From<trash::TrashItem> for TrashedEntry {
     }
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl TrashedEntry {
     fn into_trash_item(self) -> trash::TrashItem {
         trash::TrashItem {
@@ -264,6 +271,7 @@ pub enum TrashRestoreError {
     Unknown { description: String },
 }
 
+#[cfg(not(target_os = "wasi"))]
 impl From<trash::Error> for TrashRestoreError {
     fn from(err: trash::Error) -> Self {
         match err {
@@ -524,6 +532,12 @@ impl FileHandle for std::fs::File {
         anyhow::ensure!(!c_str.is_empty(), "Could find a path for the file handle");
         let path = PathBuf::from(OsStr::from_bytes(c_str.to_bytes()));
         Ok(path)
+    }
+
+    /// WaOS port: WASI does not say where an open file is now.
+    #[cfg(target_os = "wasi")]
+    fn current_path(&self, _: &Arc<dyn Fs>) -> Result<PathBuf> {
+        anyhow::bail!("a WASI component cannot ask where an open file is")
     }
 
     #[cfg(target_os = "windows")]
@@ -795,6 +809,7 @@ impl Fs for RealFs {
         Ok(())
     }
 
+    #[cfg(not(target_os = "wasi"))]
     async fn extract_tar_file(
         &self,
         path: &Path,
@@ -936,10 +951,14 @@ impl Fs for RealFs {
         // its target and leave the link behind.
         let path = std::path::absolute(path).context("Could not make the path absolute")?;
 
+        #[cfg(not(target_os = "wasi"))]
         let entry = smol::unblock(move || trash::delete_with_info(path))
             .await
             .context("Could not trash file or dir")?
             .into();
+        // WaOS port: WASI has no system trash.
+        #[cfg(target_os = "wasi")]
+        let entry: TrashedEntry = anyhow::bail!("no system trash for {path:?} in a WASI component");
 
         Ok(self.trash.lock().insert(entry))
     }
@@ -1133,6 +1152,12 @@ impl Fs for RealFs {
         #[cfg(unix)]
         let inode = metadata.ino();
 
+        // WaOS port: WASI's inode; it has no FIFOs or executable bits to read.
+        #[cfg(target_os = "wasi")]
+        let inode = std::os::wasi::fs::MetadataExt::ino(&metadata);
+        #[cfg(target_os = "wasi")]
+        let (is_fifo, is_executable) = (false, false);
+
         #[cfg(windows)]
         let inode = file_id(path).await?;
 
@@ -1153,6 +1178,13 @@ impl Fs for RealFs {
             .spawn(async move { path_buf.is_executable() })
             .await;
 
+        // WaOS port: WASI's file stat has no permission bits, so std calls every file read-only;
+        // whether a write is allowed shows only when it is tried.
+        #[cfg(target_os = "wasi")]
+        let is_writable = true;
+        #[cfg(not(target_os = "wasi"))]
+        let is_writable = !metadata.permissions().readonly();
+
         Ok(Some(Metadata {
             inode,
             mtime: MTime(metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH)),
@@ -1161,7 +1193,7 @@ impl Fs for RealFs {
             is_dir: metadata.file_type().is_dir(),
             is_fifo,
             is_executable,
-            is_writable: !metadata.permissions().readonly(),
+            is_writable,
         }))
     }
 
@@ -1418,7 +1450,14 @@ impl Fs for RealFs {
 
         let restored_item_path = trashed_entry.original_parent.join(&trashed_entry.name);
 
+        // WaOS port: WASI has no system trash.
+        #[cfg(target_os = "wasi")]
+        return Err(TrashRestoreError::Unknown {
+            description: format!("no system trash for {restored_item_path:?} in a WASI component"),
+        });
+        #[cfg(not(target_os = "wasi"))]
         let (tx, rx) = futures::channel::oneshot::channel();
+        #[cfg(not(target_os = "wasi"))]
         std::thread::Builder::new()
             .name("restore trashed item".to_string())
             .spawn(move || {
@@ -1427,9 +1466,12 @@ impl Fs for RealFs {
             })
             .expect("The OS can spawn a threads");
 
-        rx.await.expect("Restore all never panics")?;
-        self.trash.lock().remove(trash_id);
-        Ok(restored_item_path)
+        #[cfg(not(target_os = "wasi"))]
+        {
+            rx.await.expect("Restore all never panics")?;
+            self.trash.lock().remove(trash_id);
+            Ok(restored_item_path)
+        }
     }
 }
 
@@ -3096,6 +3138,7 @@ impl Fs for FakeFs {
         Ok(())
     }
 
+    #[cfg(not(target_os = "wasi"))]
     async fn extract_tar_file(
         &self,
         path: &Path,

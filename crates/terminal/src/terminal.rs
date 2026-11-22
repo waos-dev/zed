@@ -31,6 +31,8 @@ use task::{HideStrategy, Shell, ShellKind, SpawnInTerminal};
 use terminal_settings::{AlternateScroll, CursorShape as SettingsCursorShape, TerminalSettings};
 use theme::{ActiveTheme, Theme};
 use urlencoding;
+// WaOS port: the child's status of `util::command`, std's natively.
+use util::command::ExitStatus;
 use util::{ResultExt as _, paths::PathStyle, truncate_and_trailoff};
 
 #[cfg(unix)]
@@ -41,7 +43,6 @@ use std::{
     fmt::{self, Display, Formatter},
     ops::{BitOr, BitOrAssign, Deref, Range as StdRange},
     path::{Path, PathBuf},
-    process::ExitStatus,
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},

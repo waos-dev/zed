@@ -29,6 +29,9 @@ impl Default for GrammarId {
 /// A handle that can produce a parseable [`tree_sitter::Language`] on the
 /// current thread.
 ///
+/// WaOS port: "WebAssembly" below is the browser's; a WASI component links its grammars
+/// statically, as native code does, and takes the native path.
+///
 /// On native targets a language is process-global, so the handle simply
 /// stores it. On WebAssembly, a dynamically linked grammar's functions live
 /// in the function table of the wasm instance that linked it, and every
@@ -38,34 +41,34 @@ impl Default for GrammarId {
 /// looks up a copy of the grammar for whichever thread asks.
 #[derive(Clone)]
 pub struct ParseableLanguage {
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
     language: tree_sitter::Language,
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     resolve: std::sync::Arc<dyn Fn() -> Result<tree_sitter::Language> + Send + Sync>,
 }
 
 impl ParseableLanguage {
     /// A parseable language valid on the calling thread.
     pub fn resolve(&self) -> Result<tree_sitter::Language> {
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
         {
             Ok(self.language.clone())
         }
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(target_family = "wasm", target_os = "unknown"))]
         {
             (self.resolve)()
         }
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
+#[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
 impl From<tree_sitter::Language> for ParseableLanguage {
     fn from(language: tree_sitter::Language) -> Self {
         Self { language }
     }
 }
 
-#[cfg(target_family = "wasm")]
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
 impl ParseableLanguage {
     pub fn from_resolver(
         resolve: std::sync::Arc<dyn Fn() -> Result<tree_sitter::Language> + Send + Sync>,
@@ -82,9 +85,9 @@ impl std::fmt::Debug for ParseableLanguage {
 
 pub struct Grammar {
     id: GrammarId,
-    #[cfg(not(target_family = "wasm"))]
+    #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
     pub ts_language: tree_sitter::Language,
-    #[cfg(target_family = "wasm")]
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
     parseable_language: ParseableLanguage,
     pub error_query: Option<Query>,
     pub highlights_config: Option<HighlightsConfig>,
@@ -335,11 +338,11 @@ impl Grammar {
             runnable_config: None,
             error_query,
             debug_variables_config: None,
-            #[cfg(not(target_family = "wasm"))]
+            #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
             ts_language: parseable_language
                 .resolve()
                 .expect("resolving a native parseable language cannot fail"),
-            #[cfg(target_family = "wasm")]
+            #[cfg(all(target_family = "wasm", target_os = "unknown"))]
             parseable_language,
             highlight_map: Default::default(),
         }
@@ -350,11 +353,11 @@ impl Grammar {
     /// See [`ParseableLanguage`] for why this is a resolution rather than a
     /// field access on WebAssembly.
     pub fn parseable_language(&self) -> Result<tree_sitter::Language> {
-        #[cfg(not(target_family = "wasm"))]
+        #[cfg(not(all(target_family = "wasm", target_os = "unknown")))]
         {
             Ok(self.ts_language.clone())
         }
-        #[cfg(target_family = "wasm")]
+        #[cfg(all(target_family = "wasm", target_os = "unknown"))]
         {
             self.parseable_language.resolve()
         }

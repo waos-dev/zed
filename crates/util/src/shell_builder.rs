@@ -200,6 +200,8 @@ impl ShellBuilder {
     ///
     /// Prefer this over manually constructing a command with the output of `Self::build`,
     /// as this method handles `cmd` weirdness on windows correctly.
+    // WaOS port: smol has no processes on WASI.
+    #[cfg(not(target_os = "wasi"))]
     pub fn build_smol_command(
         self,
         task_command: Option<String>,

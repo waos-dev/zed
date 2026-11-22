@@ -376,19 +376,24 @@ impl SettingsStore {
             paths::global_settings_file().clone(),
         );
 
-        let global_content = cx
-            .foreground_executor()
-            .block_on(global_settings_file_rx.next())
-            .unwrap();
-        let user_content = cx
-            .foreground_executor()
-            .block_on(user_settings_file_rx.next())
-            .unwrap();
+        // WaOS port: nothing may block on wasm, so the files' first contents arrive as their
+        // changes do, below.
+        #[cfg(not(target_family = "wasm"))]
+        {
+            let global_content = cx
+                .foreground_executor()
+                .block_on(global_settings_file_rx.next())
+                .unwrap();
+            let user_content = cx
+                .foreground_executor()
+                .block_on(user_settings_file_rx.next())
+                .unwrap();
 
-        let result = self.set_user_settings(&user_content, cx);
-        settings_changed(SettingsFile::User, result, cx);
-        let result = self.set_global_settings(&global_content, cx);
-        settings_changed(SettingsFile::Global, result, cx);
+            let result = self.set_user_settings(&user_content, cx);
+            settings_changed(SettingsFile::User, result, cx);
+            let result = self.set_global_settings(&global_content, cx);
+            settings_changed(SettingsFile::Global, result, cx);
+        }
 
         self._settings_files_watcher = Some(cx.spawn(async move |cx| {
             let _user_settings_watcher = user_settings_watcher;

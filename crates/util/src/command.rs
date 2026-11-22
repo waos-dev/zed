@@ -13,6 +13,10 @@ const CREATE_NO_WINDOW: u32 = 0x0800_0000_u32;
 
 pub use gpui_util::new_std_command;
 
+/// How a child ended and what it wrote: std's, on every platform with processes of its own.
+/// WaOS port: so code that names them also builds for WASI, whose `command` has its own.
+pub use std::process::{ExitStatus, Output};
+
 pub fn new_command(program: impl AsRef<OsStr>) -> Command {
     Command::new(program)
 }

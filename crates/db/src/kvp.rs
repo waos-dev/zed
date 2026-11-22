@@ -243,10 +243,10 @@ impl std::ops::Deref for GlobalKeyValueStore {
 static GLOBAL_KEY_VALUE_STORE: std::sync::LazyLock<GlobalKeyValueStore> =
     std::sync::LazyLock::new(|| {
         let db_dir = crate::database_dir();
-        GlobalKeyValueStore(gpui::block_on(crate::open_db::<GlobalKeyValueStore>(
+        GlobalKeyValueStore(crate::open_db_now::<GlobalKeyValueStore>(
             db_dir,
             crate::GlobalDbScope,
-        )))
+        ))
     });
 
 impl GlobalKeyValueStore {

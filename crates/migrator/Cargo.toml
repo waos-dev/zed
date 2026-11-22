@@ -19,7 +19,7 @@ convert_case.workspace = true
 log.workspace = true
 streaming-iterator.workspace = true
 tree-sitter-json.workspace = true
-tree-sitter = { workspace = true, features = ["wasm"] }
+tree-sitter.workspace = true
 serde_json_lenient.workspace = true
 serde_json.workspace = true
 settings_content.workspace = true
@@ -28,3 +28,8 @@ settings_json = { workspace = true, features = ["editing"] }
 [dev-dependencies]
 indoc.workspace = true
 pretty_assertions.workspace = true
+
+# WaOS port: grammars compiled to wasm need wasmtime, which a WASI component cannot hold; the
+# built-in grammars are native code.
+[target.'cfg(not(target_os = "wasi"))'.dependencies]
+tree-sitter = { workspace = true, features = ["wasm"] }

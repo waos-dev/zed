@@ -285,7 +285,9 @@
   "accessible_mode": false,
   // Whether to use the system provided dialogs for Open and Save As.
   // When set to false, Zed will use the built-in keyboard-first pickers.
-  "use_system_path_prompts": true,
+  // WaOS port: Zed's own prompts, over the files it reads, a machine's mounted at `/`; the
+  // system's would pick a folder of the device WaOS runs on, which on Android has no path.
+  "use_system_path_prompts": false,
   // Whether to use the system provided dialogs for prompts, such as confirmation
   // prompts.
   // When set to false, Zed will use its built-in prompts. Note that on Linux,

@@ -16,13 +16,14 @@ use regex::Regex;
 use serde_json::{Value, json};
 use settings::SemanticTokenRules;
 use smol::fs;
+// WaOS port: a child's output of `util::command`, std's natively.
+use util::command::Output;
 use std::{
     borrow::Cow,
     ffi::{OsStr, OsString},
     future::Future,
     ops::Range,
     path::{Path, PathBuf},
-    process::Output,
     str,
     sync::{
         Arc, LazyLock,
