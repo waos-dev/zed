@@ -273,6 +273,8 @@ members = [
     "tooling/perf",
     "tooling/xtask",
 ]
+# WaOS port: the patched third-party crates are `[patch]`ed in, not members.
+exclude = ["waos/patched"]
 default-members = ["crates/zed"]
 
 [workspace.package]
@@ -1008,6 +1010,11 @@ webrtc-sys = "0.3.23"
 # It lacks the Vulkan surface-drop fix (wgpu#10230) and WebGL resize fix (wgpu#10348) of the git revision used before.
 wgpu = { version = "30.0.1", default-features = false }
 which = "8"
+# WaOS port: the SDK a WaOS program is written with, at a revision of WaOS's main with everything
+# the port uses (mounts, touch, the safe area, the terminal's keyboard).
+wasdk = { git = "https://github.com/waos-dev/waos", rev = "849efff82b85d84d3066ce13131901808d016eec" }
+wasdk-wgpu = { git = "https://github.com/waos-dev/waos", rev = "849efff82b85d84d3066ce13131901808d016eec" }
+wasdk-adapter-gpui = { git = "https://github.com/waos-dev/waos", rev = "849efff82b85d84d3066ce13131901808d016eec" }
 windows-core = "0.62"
 windows-registry = "0.6.0"
 xkbcommon = { version = "0.8", default-features = false }
@@ -1036,12 +1043,38 @@ features = [
     "Win32_UI_WindowsAndMessaging",
 ]
 
+# WaOS port: the adapter in WaOS names GPUI by the fork's revision; here it is this copy's.
+[patch."https://github.com/xtyxtyx/zed"]
+gpui = { path = "crates/gpui" }
+gpui_wgpu = { path = "crates/gpui_wgpu" }
+
+# WaOS port: alacritty_terminal without its PTY and event loop on WASI.
+[patch."https://github.com/zed-industries/alacritty"]
+alacritty_terminal = { path = "waos/patched/alacritty_terminal" }
+
+# WaOS port: tree-sitter with its parser and languages `Send` on WASI, which links grammars
+# statically as native code does.
+[patch."https://github.com/tree-sitter/tree-sitter"]
+tree-sitter = { path = "waos/patched/tree-sitter/lib" }
+
 [patch.crates-io]
+# WaOS port: smol's API without async-io's reactor on WASI, which has no backend there
+# (from the 10-16 experiment's `smol-without-reactor`).
+smol = { path = "waos/patched/smol" }
+# WaOS port: blocking work in place on WASI, with no thread pool to run it.
+blocking = { path = "waos/patched/blocking" }
+# WaOS port: getrandom 0.3 on wasm32-wasip3, through getrandom 0.4 (rand 0.9 and uuid use 0.3).
+getrandom = { path = "waos/patched/getrandom-0.3" }
+# WaOS port: dirs' home on WASI from `$HOME`, which the port sets to the machine's home.
+dirs = { path = "waos/patched/dirs" }
+# WaOS port: psm without stack switching on wasm32-wasip3 (stacker then grows nothing).
+psm = { path = "waos/patched/psm" }
 cpal = { git = "https://github.com/RustAudio/cpal", rev = "e1612d5d98152f8dc2a62e1b51ef7cbf4f7f26b7" }
 # Unify `tree_sitter_language::LanguageFn` between crates.io grammar crates and
 # the git tree-sitter above; two instances of the crate would make grammar
 # constants type-incompatible with `tree_sitter::Language`.
-tree-sitter-language = { git = "https://github.com/tree-sitter/tree-sitter", rev = "803c6ebaac27d69e1808b45058482e868d073ceb" }
+# WaOS port: from the patched tree-sitter copy, which tree-sitter takes it from too.
+tree-sitter-language = { path = "waos/patched/tree-sitter/crates/language" }
 async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
 # Keep the waker identity fix until it is released: https://github.com/smol-rs/async-task/pull/108
 async-task = { git = "https://github.com/smol-rs/async-task", rev = "41fd3359c75e221bd8b187a8ee361aa309c1714c" }
