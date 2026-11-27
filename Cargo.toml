@@ -1011,10 +1011,10 @@ webrtc-sys = "0.3.23"
 # It lacks the Vulkan surface-drop fix (wgpu#10230) and WebGL resize fix (wgpu#10348) of the git revision used before.
 wgpu = { version = "30.0.1", default-features = false }
 which = "8"
-# WaOS port: the SDK a WaOS program is written with, at WaOS's release 0.8.0.
-wasdk = { git = "https://github.com/waos-dev/waos", tag = "v0.8.0" }
-wasdk-wgpu = { git = "https://github.com/waos-dev/waos", tag = "v0.8.0" }
-wasdk-adapter-gpui = { git = "https://github.com/waos-dev/waos", tag = "v0.8.0" }
+# WaOS port: the SDK a WaOS program is written with, at WaOS's release 0.8.1.
+wasdk = { git = "https://github.com/waos-dev/waos", tag = "v0.8.1" }
+wasdk-wgpu = { git = "https://github.com/waos-dev/waos", tag = "v0.8.1" }
+wasdk-adapter-gpui = { git = "https://github.com/waos-dev/waos", tag = "v0.8.1" }
 windows-core = "0.62"
 windows-registry = "0.6.0"
 xkbcommon = { version = "0.8", default-features = false }

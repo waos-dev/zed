@@ -26,7 +26,7 @@ Needed:
 - `waos`, of the WaOS release the root `Cargo.toml` takes the SDK at:
 
   ```sh
-  cargo install waos-cli --version 0.8.0 --locked
+  cargo install waos-cli --version 0.8.1 --locked
   ```
 
 Then, with the variables above set for every command (or cc-rs builds aws-lc with the system's compiler and the link fails):
