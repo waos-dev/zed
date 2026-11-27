@@ -1011,11 +1011,10 @@ webrtc-sys = "0.3.23"
 # It lacks the Vulkan surface-drop fix (wgpu#10230) and WebGL resize fix (wgpu#10348) of the git revision used before.
 wgpu = { version = "30.0.1", default-features = false }
 which = "8"
-# WaOS port: the SDK a WaOS program is written with, at a revision of WaOS's main with everything
-# the port uses (mounts, touch, the safe area, the terminal's keyboard).
-wasdk = { git = "https://github.com/waos-dev/waos", rev = "849efff82b85d84d3066ce13131901808d016eec" }
-wasdk-wgpu = { git = "https://github.com/waos-dev/waos", rev = "849efff82b85d84d3066ce13131901808d016eec" }
-wasdk-adapter-gpui = { git = "https://github.com/waos-dev/waos", rev = "849efff82b85d84d3066ce13131901808d016eec" }
+# WaOS port: the SDK a WaOS program is written with, at WaOS's release 0.8.1.
+wasdk = { git = "https://github.com/waos-dev/waos", tag = "v0.8.1" }
+wasdk-wgpu = { git = "https://github.com/waos-dev/waos", tag = "v0.8.1" }
+wasdk-adapter-gpui = { git = "https://github.com/waos-dev/waos", tag = "v0.8.1" }
 windows-core = "0.62"
 windows-registry = "0.6.0"
 xkbcommon = { version = "0.8", default-features = false }
@@ -1044,8 +1043,8 @@ features = [
     "Win32_UI_WindowsAndMessaging",
 ]
 
-# WaOS port: the adapter in WaOS names GPUI by the fork's revision; here it is this copy's.
-[patch."https://github.com/xtyxtyx/zed"]
+# WaOS port: the adapter in WaOS names GPUI by a revision of this fork; here it is this copy's.
+[patch."https://github.com/waos-dev/zed"]
 gpui = { path = "crates/gpui" }
 gpui_wgpu = { path = "crates/gpui_wgpu" }
 

@@ -23,10 +23,10 @@ Needed:
   export CFLAGS_wasm32_wasip3="--sysroot=$WASI_SYSROOT" CXXFLAGS_wasm32_wasip3="--sysroot=$WASI_SYSROOT"
   ```
 
-- `waos`, of the WaOS revision the root `Cargo.toml` takes the SDK at:
+- `waos`, of the WaOS release the root `Cargo.toml` takes the SDK at:
 
   ```sh
-  cargo install --git https://github.com/waos-dev/waos --rev 849efff82b85d84d3066ce13131901808d016eec waos-cli --locked
+  cargo install waos-cli --version 0.8.1 --locked
   ```
 
 Then, with the variables above set for every command (or cc-rs builds aws-lc with the system's compiler and the link fails):
@@ -59,4 +59,4 @@ git merge FETCH_HEAD          # on waos; `git diff FETCH_HEAD...waos` is the who
 - Conflicts are in the `WaOS port:` changes. `rust-toolchain.toml` stays WaOS's.
 - Where upstream moves a crate `waos/patched` has a copy of (tree-sitter's or alacritty's revision, smol, blocking, dirs, getrandom 0.3, psm), the copy is redone from the new source with its change carried over, or its `[patch]` no longer applies and cargo says it is unused.
 - New code in Zed's crates may need its own WASI path: `cargo check -p zed_waos --target wasm32-wasip3` with the variables above finds it.
-- Taking a newer WaOS is the `rev` of `wasdk`, `wasdk-wgpu` and `wasdk-adapter-gpui` in the root `Cargo.toml`; the release installs `waos` from the revision in the lockfile. WaOS's adapter names GPUI by a revision of `github.com/xtyxtyx/zed`, which `[patch."https://github.com/xtyxtyx/zed"]` replaces with this checkout's `gpui`.
+- Taking a newer WaOS is the `tag` of `wasdk`, `wasdk-wgpu` and `wasdk-adapter-gpui` in the root `Cargo.toml`; the release installs `waos` from the revision in the lockfile. WaOS's adapter names GPUI by a revision of `github.com/waos-dev/zed`, which `[patch."https://github.com/waos-dev/zed"]` replaces with this checkout's `gpui`.
